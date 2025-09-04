@@ -1,159 +1,928 @@
+import os
+import sys
+import time
+import json
+import logging
+import asyncio
+import aiofiles
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+from dataclasses import dataclass
+from enum import Enum
+import traceback
+from functools import wraps
+import pickle
+
+# Flask and web components
 from flask import Flask, request, jsonify, render_template_string
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+# ML and NLP components
+import numpy as np
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+
+# Language processing
+import langdetect
+from googletrans import Translator
+import re
+
+# Phi components
 from phi.agent import Agent
 from phi.model.groq import Groq
 from phi.knowledge.pdf import PDFKnowledgeBase
 from phi.vectordb.lancedb import LanceDb
 from phi.vectordb.search import SearchType
 from phi.embedder.sentence_transformer import SentenceTransformerEmbedder
+
+# Load environment variables
 from dotenv import load_dotenv
-import os
-import json
-import sys
-import locale
-import traceback
+load_dotenv()
 
-if sys.stdout.encoding != 'utf-8':
-    sys.stdout.reconfigure(encoding='utf-8')
-if sys.stderr.encoding != 'utf-8':
-    sys.stderr.reconfigure(encoding='utf-8')
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('enhanced_soybot.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger('EnhancedSoyBot')
 
-# Set locale for proper text handling
-try:
-    locale.setlocale(locale.LC_ALL, 'en_US.UTF-8')
-except:
-    try:
-        locale.setlocale(locale.LC_ALL, 'C.UTF-8')
-    except:
-        pass
+# Enums and Data Classes
+class QueryIntent(Enum):
+    DISEASE_DIAGNOSIS = "disease_diagnosis"
+    PEST_CONTROL = "pest_control"
+    FERTILIZER_ADVICE = "fertilizer_advice"
+    PLANTING_GUIDANCE = "planting_guidance"
+    HARVESTING_INFO = "harvesting_info"
+    IRRIGATION = "irrigation"
+    VARIETY_SELECTION = "variety_selection"
+    GENERAL_QUERY = "general_query"
+    WEATHER_CONTEXT = "weather_context"
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+class Language(Enum):
+    ENGLISH = "en"
+    HINDI = "hi"
+    MARATHI = "mr"
 
-# Global variables for the system
-soybot_agent = None
-knowledge_base = None
-is_initialized = False
+@dataclass
+class QueryAnalysis:
+    intent: QueryIntent
+    confidence: float
+    language: Language
+    entities: List[str]
+    context_requirements: List[str]
 
-def initialize_soybot():
-    """Initialize SoyBot with PDF-only knowledge base"""
-    global soybot_agent, knowledge_base, is_initialized
+@dataclass
+class ResponseQuality:
+    relevance: float
+    completeness: float
+    accuracy: float
+    actionability: float
+    overall_confidence: float
+    needs_refinement: bool
+    suggested_improvements: List[str]
+
+class AdvancedLanguageProcessor:
+    """Enhanced language processing with better multilingual support"""
     
-    try:
-        load_dotenv()
-        groq_api_key = os.getenv("GROQ_API_KEY")
+    def __init__(self):
+        self.translator = Translator()
+        self.hindi_romanized_patterns = {
+            'kya': 'क्या', 'kaise': 'कैसे', 'kab': 'कब', 'kahan': 'कहाँ',
+            'fasal': 'फसल', 'beej': 'बीज', 'khad': 'खाद', 'pani': 'पानी',
+            'kisan': 'किसान', 'zameen': 'जमीन', 'kheti': 'खेती'
+        }
+        self.agriculture_terms = {
+            'disease', 'pest', 'fertilizer', 'seed', 'crop', 'soil', 'irrigation',
+            'harvest', 'sowing', 'planting', 'variety', 'yield', 'nitrogen',
+            'phosphorus', 'potassium', 'organic', 'pesticide', 'fungicide'
+        }
         
-        if not groq_api_key:
-            raise Exception("GROQ_API_KEY not found in environment variables")
+    def enhanced_language_detection(self, text: str) -> Dict[str, any]:
+        """Enhanced language detection with confidence scoring"""
+        try:
+            primary_lang = langdetect.detect(text)
+            lang_probs = langdetect.detect_langs(text)
+        except:
+            primary_lang = 'en'
+            lang_probs = []
         
-        print("🔄 Setting up knowledge base...")
-        # Knowledge Base setup
-        knowledge_base = PDFKnowledgeBase(
-            path="Soybeanpackageofpractices.pdf",
-            vector_db=LanceDb(
-                table_name="soybean_practices",
-                uri="./vectordb/soybot_db",
-                search_type=SearchType.vector,
-                embedder=SentenceTransformerEmbedder(model="all-MiniLM-L6-v2"),
-                nprobes=10,
-                distance="cosine"
-            )
+        # Check for Hindi/Marathi words in Roman script
+        romanized_hindi = self.detect_romanized_hindi(text)
+        
+        # Check for code-switching (English-Hindi mixed)
+        code_switched = self.detect_code_switching(text)
+        
+        # Calculate agriculture domain relevance
+        agriculture_relevance = self.calculate_agriculture_relevance(text)
+        
+        confidence = max([prob.prob for prob in lang_probs]) if lang_probs else 0.5
+        
+        return {
+            'primary': primary_lang,
+            'confidence': confidence,
+            'romanized_hindi': romanized_hindi,
+            'code_switched': code_switched,
+            'agriculture_relevance': agriculture_relevance,
+            'all_probabilities': {lang.lang: lang.prob for lang in lang_probs}
+        }
+    
+    def detect_romanized_hindi(self, text: str) -> bool:
+        """Detect Hindi words written in Roman script"""
+        words = text.lower().split()
+        hindi_word_count = sum(1 for word in words if word in self.hindi_romanized_patterns)
+        return hindi_word_count > 0
+    
+    def detect_code_switching(self, text: str) -> bool:
+        """Detect mixed language usage"""
+        try:
+            sentences = re.split(r'[.!?]', text)
+            languages = []
+            for sentence in sentences:
+                if sentence.strip():
+                    try:
+                        lang = langdetect.detect(sentence.strip())
+                        languages.append(lang)
+                    except:
+                        continue
+            
+            unique_languages = set(languages)
+            return len(unique_languages) > 1
+        except:
+            return False
+    
+    def calculate_agriculture_relevance(self, text: str) -> float:
+        """Calculate how relevant the text is to agriculture"""
+        words = set(text.lower().split())
+        agriculture_words = words.intersection(self.agriculture_terms)
+        return len(agriculture_words) / max(len(words), 1)
+    
+    def preprocess_multilingual_query(self, text: str, lang_info: Dict) -> str:
+        """Preprocess multilingual queries for better understanding"""
+        processed_text = text
+        
+        if lang_info['romanized_hindi']:
+            processed_text = self.transliterate_roman_to_devanagari(processed_text)
+        
+        if lang_info['code_switched']:
+            processed_text = self.handle_code_switching(processed_text)
+        
+        return processed_text
+    
+    def transliterate_roman_to_devanagari(self, text: str) -> str:
+        """Basic transliteration of Roman Hindi to Devanagari"""
+        for roman, devanagari in self.hindi_romanized_patterns.items():
+            text = text.replace(roman, f"{roman} ({devanagari})")
+        return text
+    
+    def handle_code_switching(self, text: str) -> str:
+        """Handle code-switched text"""
+        # For now, just add language markers
+        return f"[Mixed Language] {text}"
+
+class QueryIntentClassifier:
+    """Advanced query intent classification"""
+    
+    def __init__(self):
+        self.vectorizer = TfidfVectorizer(
+            max_features=1000,
+            ngram_range=(1, 2),
+            stop_words='english'
         )
+        self.classifier = MultinomialNB()
+        self.is_trained = False
+        self.intent_keywords = {
+            QueryIntent.DISEASE_DIAGNOSIS: [
+                'disease', 'infection', 'sick', 'spots', 'yellowing', 'wilting',
+                'blight', 'rust', 'fungus', 'viral', 'bacterial', 'symptoms'
+            ],
+            QueryIntent.PEST_CONTROL: [
+                'pest', 'insect', 'bug', 'caterpillar', 'aphid', 'thrips',
+                'control', 'spray', 'pesticide', 'damage', 'eating', 'larvae'
+            ],
+            QueryIntent.FERTILIZER_ADVICE: [
+                'fertilizer', 'nutrients', 'nitrogen', 'phosphorus', 'potassium',
+                'NPK', 'organic', 'compost', 'manure', 'feeding', 'nutrition'
+            ],
+            QueryIntent.PLANTING_GUIDANCE: [
+                'planting', 'sowing', 'seeding', 'when to plant', 'plant spacing',
+                'depth', 'germination', 'varieties', 'cultivar', 'hybrid'
+            ],
+            QueryIntent.HARVESTING_INFO: [
+                'harvest', 'harvesting', 'maturity', 'ready', 'picking',
+                'yield', 'timing', 'storage', 'drying', 'processing'
+            ],
+            QueryIntent.IRRIGATION: [
+                'water', 'irrigation', 'watering', 'moisture', 'drought',
+                'rain', 'drip', 'sprinkler', 'flooding', 'dry', 'wet'
+            ]
+        }
         
-        print("🔄 Loading knowledge base...")
-        knowledge_base.load(recreate=False)
-        print("✅ Knowledge base loaded successfully!")
+        # Load pre-trained model if available
+        self.load_model()
+    
+    def create_training_dataset(self) -> Dict[str, List[str]]:
+        """Create synthetic training data for agricultural queries"""
+        training_queries = []
+        training_labels = []
         
-        print("🔄 Creating Main SoyBot Agent...")
-        # Main SoyBot Agent
-        soybot_agent = Agent(
-            name="Multilingual SoyBot",
-            role="Expert soybean farming advisor with multilingual support",
-            model=Groq(id="llama-3.3-70b-versatile", api_key=groq_api_key),
-            knowledge=knowledge_base,
-            instructions=[
-                "You are an expert soybean farming advisor with deep knowledge of Indian farming practices.",
-                "You can understand questions in Hindi (हिंदी), English, and Marathi (मराठी).",
-                "Always respond in the SAME language as the question was asked.",
-                "CRITICAL: Use ONLY the content from the provided PDF to answer questions.",
-                "Do NOT use any external knowledge or information not present in the PDF.",
-                "If the PDF doesn't contain information about the specific question, clearly state: 'This information is not available in the provided soybean farming guide.'",
-                "Do NOT make up information or provide general farming advice not in the PDF.",
-                "Use simple, clear language suitable for farmers.",
-                "Provide practical, actionable farming advice that farmers can implement based on the PDF.",
-                "Format responses clearly with proper structure using headings and bullet points when helpful.",
-                "Be comprehensive but concise in your answers.",
-                "Include relevant details like timing, quantities, methods, and precautions as specified in the PDF.",
-                "If you don't have specific information in the PDF, clearly state this and avoid guessing.",
-                "Keep responses conversational and easy to understand when spoken aloud.",
-                "Use shorter sentences when possible for better text-to-speech clarity.",
+        # Generate training examples for each intent
+        for intent, keywords in self.intent_keywords.items():
+            # Create query templates
+            templates = [
+                "How to {keyword} in soybean?",
+                "What is the best {keyword} for soybean?",
+                "When should I {keyword} my soybean crop?",
+                "Problem with {keyword} in soybean",
+                "Soybean {keyword} management",
+                "Need advice on {keyword}",
+                "{keyword} in soybean cultivation"
+            ]
+            
+            for keyword in keywords:
+                for template in templates:
+                    query = template.format(keyword=keyword)
+                    training_queries.append(query)
+                    training_labels.append(intent.value)
+        
+        return {'queries': training_queries, 'labels': training_labels}
+    
+    def train_classifier(self):
+        """Train the intent classifier"""
+        if self.is_trained:
+            return
+        
+        logger.info("Training intent classifier...")
+        training_data = self.create_training_dataset()
+        
+        X = self.vectorizer.fit_transform(training_data['queries'])
+        y = training_data['labels']
+        
+        self.classifier.fit(X, y)
+        self.is_trained = True
+        
+        # Save the trained model
+        self.save_model()
+        logger.info("Intent classifier trained successfully")
+    
+    def classify_intent(self, query: str) -> Dict[str, any]:
+        """Classify query intent with confidence scores"""
+        if not self.is_trained:
+            self.train_classifier()
+        
+        # Keyword-based fallback for untrained scenarios
+        keyword_scores = {}
+        query_lower = query.lower()
+        
+        for intent, keywords in self.intent_keywords.items():
+            score = sum(1 for keyword in keywords if keyword in query_lower)
+            keyword_scores[intent.value] = score / len(keywords)
+        
+        if sum(keyword_scores.values()) > 0:
+            primary_intent = max(keyword_scores, key=keyword_scores.get)
+            confidence = keyword_scores[primary_intent]
+        else:
+            # Use ML classifier
+            try:
+                query_vector = self.vectorizer.transform([query])
+                intent_proba = self.classifier.predict_proba(query_vector)[0]
+                intent_labels = self.classifier.classes_
+                
+                intent_scores = dict(zip(intent_labels, intent_proba))
+                primary_intent = max(intent_scores, key=intent_scores.get)
+                confidence = intent_scores[primary_intent]
+            except:
+                primary_intent = QueryIntent.GENERAL_QUERY.value
+                confidence = 0.5
+        
+        return {
+            'primary_intent': primary_intent,
+            'confidence': confidence,
+            'all_scores': keyword_scores
+        }
+    
+    def save_model(self):
+        """Save trained model"""
+        try:
+            model_data = {
+                'vectorizer': self.vectorizer,
+                'classifier': self.classifier,
+                'is_trained': self.is_trained
+            }
+            with open('models/intent_classifier.pkl', 'wb') as f:
+                pickle.dump(model_data, f)
+        except Exception as e:
+            logger.warning(f"Could not save model: {e}")
+    
+    def load_model(self):
+        """Load pre-trained model"""
+        try:
+            with open('models/intent_classifier.pkl', 'rb') as f:
+                model_data = pickle.load(f)
+                self.vectorizer = model_data['vectorizer']
+                self.classifier = model_data['classifier']
+                self.is_trained = model_data['is_trained']
+                logger.info("Loaded pre-trained intent classifier")
+        except:
+            logger.info("No pre-trained model found, will train on first use")
+
+class IntelligentKnowledgeBase:
+    """Intelligent knowledge base with topic-based segmentation"""
+    
+    def __init__(self, pdf_path: str):
+        self.pdf_path = pdf_path
+        self.topic_extractors = {
+            'diseases': ['disease', 'pest', 'infection', 'symptom', 'pathogen', 'fungal', 'bacterial', 'viral'],
+            'nutrition': ['fertilizer', 'nutrient', 'nitrogen', 'phosphorus', 'potassium', 'NPK', 'organic'],
+            'cultivation': ['planting', 'sowing', 'harvesting', 'irrigation', 'spacing', 'depth'],
+            'varieties': ['variety', 'cultivar', 'seed', 'hybrid', 'genetic', 'breeding']
+        }
+        self.knowledge_bases = {}
+        self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    
+    def create_topic_specific_databases(self) -> Dict[str, PDFKnowledgeBase]:
+        """Create topic-specific knowledge bases"""
+        logger.info("Creating topic-specific knowledge bases...")
+        
+        try:
+            # Create main knowledge base
+            main_kb = PDFKnowledgeBase(
+                path=self.pdf_path,
+                vector_db=LanceDb(
+                    table_name="soybean_main",
+                    uri="./vectordb/soybot_main_db",
+                    search_type=SearchType.hybrid,
+                    embedder=SentenceTransformerEmbedder(model="all-MiniLM-L6-v2"),
+                )
+            )
+            
+            main_kb.load(recreate=False)
+            self.knowledge_bases['main'] = main_kb
+            
+            # For now, use the main KB for all topics
+            # In production, you would segment the PDF content by topics
+            for topic in self.topic_extractors.keys():
+                self.knowledge_bases[topic] = main_kb
+            
+            logger.info("Knowledge bases created successfully")
+            return self.knowledge_bases
+            
+        except Exception as e:
+            logger.error(f"Error creating knowledge bases: {e}")
+            raise
+    
+    def get_relevant_knowledge_base(self, intent: QueryIntent) -> PDFKnowledgeBase:
+        """Get the most relevant knowledge base for a given intent"""
+        intent_to_topic = {
+            QueryIntent.DISEASE_DIAGNOSIS: 'diseases',
+            QueryIntent.PEST_CONTROL: 'diseases',
+            QueryIntent.FERTILIZER_ADVICE: 'nutrition',
+            QueryIntent.PLANTING_GUIDANCE: 'cultivation',
+            QueryIntent.HARVESTING_INFO: 'cultivation',
+            QueryIntent.VARIETY_SELECTION: 'varieties',
+            QueryIntent.IRRIGATION: 'cultivation'
+        }
+        
+        topic = intent_to_topic.get(intent, 'main')
+        return self.knowledge_bases.get(topic, self.knowledge_bases['main'])
+
+class ResponseQualityAssessor:
+    """Assess and improve response quality"""
+    
+    def __init__(self):
+        self.sentence_transformer = SentenceTransformer('all-MiniLM-L6-v2')
+        
+    def assess_response_quality(self, query: str, response: str, 
+                              knowledge_sources: List = None) -> ResponseQuality:
+        """Comprehensive response quality assessment"""
+        
+        # Calculate relevance using semantic similarity
+        relevance = self._calculate_relevance(query, response)
+        
+        # Assess completeness
+        completeness = self._assess_completeness(query, response)
+        
+        # Check accuracy indicators
+        accuracy = self._check_accuracy(response)
+        
+        # Assess actionability
+        actionability = self._assess_actionability(response)
+        
+        # Calculate overall confidence
+        overall_confidence = (relevance + completeness + accuracy + actionability) / 4
+        
+        # Determine if refinement is needed
+        needs_refinement = overall_confidence < 0.7
+        
+        # Generate improvement suggestions
+        suggested_improvements = self._suggest_improvements({
+            'relevance': relevance,
+            'completeness': completeness,
+            'accuracy': accuracy,
+            'actionability': actionability
+        })
+        
+        return ResponseQuality(
+            relevance=relevance,
+            completeness=completeness,
+            accuracy=accuracy,
+            actionability=actionability,
+            overall_confidence=overall_confidence,
+            needs_refinement=needs_refinement,
+            suggested_improvements=suggested_improvements
+        )
+    
+    def _calculate_relevance(self, query: str, response: str) -> float:
+        """Calculate semantic similarity between query and response"""
+        try:
+            query_embedding = self.sentence_transformer.encode([query])
+            response_embedding = self.sentence_transformer.encode([response])
+            similarity = cosine_similarity(query_embedding, response_embedding)[0][0]
+            return max(0.0, min(1.0, similarity))
+        except:
+            return 0.5
+    
+    def _assess_completeness(self, query: str, response: str) -> float:
+        """Assess if the response adequately addresses the query"""
+        # Simple heuristic based on response length and structure
+        response_length = len(response.split())
+        
+        if response_length < 20:
+            return 0.3
+        elif response_length < 50:
+            return 0.6
+        elif response_length < 100:
+            return 0.8
+        else:
+            return 0.9
+    
+    def _check_accuracy(self, response: str) -> float:
+        """Check for accuracy indicators in the response"""
+        accuracy_indicators = [
+            'according to', 'based on', 'research shows', 'studies indicate',
+            'ICAR', 'recommended', 'proven', 'scientific', 'expert'
+        ]
+        
+        uncertainty_indicators = [
+            'maybe', 'possibly', 'might', 'could be', 'not sure',
+            'probably', 'I think', 'perhaps'
+        ]
+        
+        response_lower = response.lower()
+        accuracy_count = sum(1 for indicator in accuracy_indicators 
+                           if indicator in response_lower)
+        uncertainty_count = sum(1 for indicator in uncertainty_indicators 
+                              if indicator in response_lower)
+        
+        # Higher accuracy score for more authoritative language
+        if accuracy_count > uncertainty_count:
+            return min(0.9, 0.5 + (accuracy_count * 0.1))
+        else:
+            return max(0.3, 0.7 - (uncertainty_count * 0.1))
+    
+    def _assess_actionability(self, response: str) -> float:
+        """Assess how actionable the response is"""
+        action_words = [
+            'apply', 'use', 'plant', 'sow', 'harvest', 'spray', 'water',
+            'fertilize', 'treat', 'monitor', 'check', 'maintain', 'follow',
+            'step', 'first', 'then', 'next', 'finally'
+        ]
+        
+        response_lower = response.lower()
+        action_count = sum(1 for word in action_words if word in response_lower)
+        
+        # Check for numbered steps or bullet points
+        has_structure = any(pattern in response for pattern in 
+                          ['1.', '2.', '•', '-', 'Step 1', 'First'])
+        
+        base_score = min(0.8, action_count * 0.1)
+        if has_structure:
+            base_score += 0.2
+            
+        return min(1.0, base_score)
+    
+    def _suggest_improvements(self, scores: Dict[str, float]) -> List[str]:
+        """Suggest improvements based on quality scores"""
+        suggestions = []
+        
+        if scores['relevance'] < 0.6:
+            suggestions.append("Improve relevance to the specific question asked")
+        
+        if scores['completeness'] < 0.6:
+            suggestions.append("Provide more comprehensive information")
+        
+        if scores['accuracy'] < 0.6:
+            suggestions.append("Include more authoritative sources and references")
+        
+        if scores['actionability'] < 0.6:
+            suggestions.append("Add more specific, actionable steps")
+        
+        return suggestions
+
+class MultiAgentSoyBot:
+    """Enhanced multi-agent SoyBot system"""
+    
+    def __init__(self):
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        if not self.groq_api_key:
+            raise ValueError("GROQ_API_KEY not found in environment variables")
+        
+        self.language_processor = AdvancedLanguageProcessor()
+        self.intent_classifier = QueryIntentClassifier()
+        self.knowledge_base = IntelligentKnowledgeBase("Soybeanpackageofpractices.pdf")
+        self.quality_assessor = ResponseQualityAssessor()
+        
+        self.agents = {}
+        self.performance_metrics = {
+            'total_queries': 0,
+            'successful_responses': 0,
+            'failed_responses': 0,
+            'average_response_time': 0,
+            'quality_scores': []
+        }
+        
+        self.is_initialized = False
+        
+    def initialize(self):
+        """Initialize all components"""
+        try:
+            logger.info("Initializing Enhanced SoyBot...")
+            
+            # Create knowledge bases
+            knowledge_bases = self.knowledge_base.create_topic_specific_databases()
+            
+            # Initialize specialized agents
+            self._create_specialized_agents(knowledge_bases)
+            
+            # Train intent classifier
+            self.intent_classifier.train_classifier()
+            
+            self.is_initialized = True
+            logger.info("Enhanced SoyBot initialized successfully!")
+            
+        except Exception as e:
+            logger.error(f"Error initializing SoyBot: {e}")
+            raise
+    
+    def _create_specialized_agents(self, knowledge_bases: Dict[str, PDFKnowledgeBase]):
+        """Create specialized agents for different domains"""
+        
+        base_instructions = [
+            "You are an expert soybean farming advisor based on ICAR-IISR guidelines.",
+            "Provide practical, actionable advice based on scientific knowledge.",
+            "Use simple, clear language that farmers can easily understand.",
+            "Always respond in the same language as the question was asked.",
+            "Structure your responses with clear points when giving multiple recommendations."
+        ]
+        
+        # Crop Management Specialist
+        self.agents['crop_management'] = Agent(
+            name="Crop Management Specialist",
+            role="Expert in planting, irrigation, and growth stages",
+            model=Groq(id="llama-3.3-70b-versatile", api_key=self.groq_api_key),
+            knowledge=knowledge_bases.get('cultivation', knowledge_bases['main']),
+            instructions=base_instructions + [
+                "Focus on planting schedules, irrigation, and crop growth stages.",
+                "Provide season-specific recommendations.",
+                "Consider soil preparation and seed selection."
             ],
             show_tool_calls=False,
-            markdown=True
+            markdown=False
         )
         
-        is_initialized = True
-        print("✅ SoyBot initialized successfully!")
-        print("   - PDF Knowledge Base: Loaded")
-        print("   - Multilingual Support: Ready")
-        print("   - PDF-Only Responses: Enforced")
-        print("   - Speech Integration: Ready")
-        return True
+        # Plant Health Specialist
+        self.agents['plant_health'] = Agent(
+            name="Plant Health Specialist",
+            role="Expert in disease diagnosis and pest management",
+            model=Groq(id="llama-3.3-70b-versatile", api_key=self.groq_api_key),
+            knowledge=knowledge_bases.get('diseases', knowledge_bases['main']),
+            instructions=base_instructions + [
+                "Diagnose plant diseases from symptoms described.",
+                "Recommend integrated pest management strategies.",
+                "Suggest both organic and chemical treatment options.",
+                "Provide prevention strategies."
+            ],
+            show_tool_calls=False,
+            markdown=False
+        )
         
+        # Soil & Nutrition Expert
+        self.agents['nutrition'] = Agent(
+            name="Soil & Nutrition Expert",
+            role="Expert in fertilizer and soil health management",
+            model=Groq(id="llama-3.3-70b-versatile", api_key=self.groq_api_key),
+            knowledge=knowledge_bases.get('nutrition', knowledge_bases['main']),
+            instructions=base_instructions + [
+                "Recommend fertilizer schedules and nutrient management.",
+                "Assess soil nutrient deficiencies from symptoms.",
+                "Suggest organic amendments and soil improvement methods."
+            ],
+            show_tool_calls=False,
+            markdown=False
+        )
+        
+        # General Coordinator
+        self.agents['coordinator'] = Agent(
+            name="SoyBot Coordinator",
+            role="Route queries and provide general farming advice",
+            model=Groq(id="llama-3.3-70b-versatile", api_key=self.groq_api_key),
+            knowledge=knowledge_bases['main'],
+            instructions=base_instructions + [
+                "Handle general queries and coordinate with specialists when needed.",
+                "Provide comprehensive farming advice.",
+                "Synthesize information from multiple domains when necessary."
+            ],
+            show_tool_calls=False,
+            markdown=False
+        )
+    
+
+    def performance_monitor(func):
+    
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):  # 'self' should be the first parameter
+            start_time = time.time()
+            self.performance_metrics['total_queries'] += 1
+            
+            try:
+                result = func(self, *args, **kwargs)  # Pass 'self' to the original function
+                self.performance_metrics['successful_responses'] += 1
+                
+                response_time = time.time() - start_time
+                
+                # Update average response time
+                total_successful = self.performance_metrics['successful_responses']
+                current_avg = self.performance_metrics['average_response_time']
+                self.performance_metrics['average_response_time'] = (
+                    (current_avg * (total_successful - 1) + response_time) / total_successful
+                )
+                
+                logger.info(f"Query processed successfully in {response_time:.2f}s")
+                return result
+                
+            except Exception as e:
+                self.performance_metrics['failed_responses'] += 1
+                logger.error(f"Error processing query: {str(e)}")
+                raise
+                
+        return wrapper
+    
+    @performance_monitor 
+    def process_query(self, query: str, user_context: Optional[Dict] = None) -> Dict[str, any]:
+        """Process query using multi-agent approach"""
+        
+        # Language analysis
+        lang_info = self.language_processor.enhanced_language_detection(query)
+        
+        # Preprocess query
+        processed_query = self.language_processor.preprocess_multilingual_query(query, lang_info)
+        
+        # Intent classification
+        intent_info = self.intent_classifier.classify_intent(query)
+        
+        # Route to appropriate agent
+        agent_response = self._route_query_to_agent(processed_query, intent_info)
+        
+        # Quality assessment
+        quality_assessment = self.quality_assessor.assess_response_quality(
+            query, agent_response['response']
+        )
+        
+        # Store quality metrics
+        self.performance_metrics['quality_scores'].append(quality_assessment.overall_confidence)
+        
+        # Enhance response if needed
+        if quality_assessment.needs_refinement:
+            agent_response['response'] = self._enhance_low_confidence_response(
+                query, agent_response['response'], quality_assessment
+            )
+        
+        return {
+            'response': agent_response['response'],
+            'agent_used': agent_response['agent'],
+            'language_info': lang_info,
+            'intent_info': intent_info,
+            'quality_assessment': quality_assessment.__dict__,
+            'processing_time': time.time()
+        }
+    
+    def _route_query_to_agent(self, query: str, intent_info: Dict) -> Dict[str, str]:
+        """Route query to the most appropriate agent"""
+        
+        intent = intent_info['primary_intent']
+        confidence = intent_info['confidence']
+        
+        # Route based on intent
+        if intent in ['disease_diagnosis', 'pest_control'] and confidence > 0.6:
+            agent_name = 'plant_health'
+        elif intent in ['fertilizer_advice'] and confidence > 0.6:
+            agent_name = 'nutrition'
+        elif intent in ['planting_guidance', 'harvesting_info', 'irrigation'] and confidence > 0.6:
+            agent_name = 'crop_management'
+        else:
+            agent_name = 'coordinator'
+        
+        try:
+            agent = self.agents[agent_name]
+            response = agent.run(query)
+            
+            # Extract response content
+            if hasattr(response, 'content'):
+                response_text = response.content
+            else:
+                response_text = str(response)
+            
+            return {
+                'response': response_text,
+                'agent': agent_name
+            }
+            
+        except Exception as e:
+            logger.error(f"Error with agent {agent_name}: {e}")
+            # Fallback to coordinator
+            if agent_name != 'coordinator':
+                return self._route_query_to_agent(query, {'primary_intent': 'general_query', 'confidence': 1.0})
+            else:
+                return {
+                    'response': "I apologize, but I'm experiencing technical difficulties. Please try asking your question again.",
+                    'agent': 'fallback'
+                }
+    
+    def _enhance_low_confidence_response(self, query: str, response: str, 
+                                       quality_assessment: ResponseQuality) -> str:
+        """Enhance responses with low confidence scores"""
+        
+        enhanced_response = response
+        
+        # Add uncertainty indicators for low confidence
+        if quality_assessment.overall_confidence < 0.5:
+            enhanced_response += "\n\n⚠️ Note: This recommendation should be verified with local agricultural experts or extension officers."
+        
+        # Add suggestions for improvement
+        if quality_assessment.suggested_improvements:
+            enhanced_response += f"\n\nFor more specific guidance, consider: {', '.join(quality_assessment.suggested_improvements[:2])}"
+        
+        return enhanced_response
+    
+    def get_performance_metrics(self) -> Dict[str, any]:
+        """Get current performance metrics"""
+        metrics = self.performance_metrics.copy()
+        
+        if metrics['quality_scores']:
+            metrics['average_quality_score'] = sum(metrics['quality_scores']) / len(metrics['quality_scores'])
+            metrics['success_rate'] = metrics['successful_responses'] / metrics['total_queries'] if metrics['total_queries'] > 0 else 0
+        else:
+            metrics['average_quality_score'] = 0
+            metrics['success_rate'] = 0
+        
+        return metrics
+
+# Context-Aware Enhancement
+class ContextAwareEnhancer:
+    """Add contextual information to responses"""
+    
+    def __init__(self):
+        self.seasonal_context = {
+            'kharif': {
+                'months': [6, 7, 8, 9, 10],  # June to October
+                'activities': ['sowing', 'vegetative growth', 'flowering', 'pod filling', 'harvesting']
+            },
+            'rabi': {
+                'months': [11, 12, 1, 2, 3],  # November to March
+                'activities': ['land preparation', 'seed treatment', 'storage management']
+            }
+        }
+    
+    def get_seasonal_context(self) -> Dict[str, any]:
+        """Get current seasonal context"""
+        current_month = datetime.now().month
+        current_season = 'kharif' if current_month in self.seasonal_context['kharif']['months'] else 'rabi'
+        
+        return {
+            'season': current_season,
+            'month': current_month,
+            'relevant_activities': self.seasonal_context[current_season]['activities']
+        }
+    
+    def enhance_with_context(self, response: str, query: str) -> str:
+        """Enhance response with contextual information"""
+        seasonal_context = self.get_seasonal_context()
+        
+        # Add seasonal context if relevant
+        if any(activity in query.lower() for activity in ['plant', 'sow', 'harvest', 'fertilizer']):
+            season_info = f"\n\n📅 Seasonal Context: Currently in {seasonal_context['season'].capitalize()} season. "
+            if seasonal_context['season'] == 'kharif':
+                season_info += "This is the main soybean growing season in India."
+            else:
+                season_info += "Focus on land preparation and planning for next kharif season."
+            
+            response += season_info
+        
+        return response
+
+# A/B Testing Framework
+class ABTestingFramework:
+    """A/B testing for different response strategies"""
+    
+    def __init__(self):
+        self.test_variants = {
+            'detailed': 'detailed_response',
+            'concise': 'concise_response',
+            'structured': 'structured_response'
+        }
+        self.user_assignments = {}
+        self.test_results = {variant: {'count': 0, 'satisfaction': []} for variant in self.test_variants.keys()}
+    
+    def assign_user_variant(self, user_id: str) -> str:
+        """Assign user to a test variant"""
+        import random
+        if user_id not in self.user_assignments:
+            variant = random.choice(list(self.test_variants.keys()))
+            self.user_assignments[user_id] = variant
+        
+        return self.user_assignments[user_id]
+    
+    def format_response_by_variant(self, response: str, variant: str) -> str:
+        """Format response based on test variant"""
+        if variant == 'detailed':
+            return f"📋 Detailed Analysis:\n\n{response}\n\n💡 Additional Tips: Consider consulting your local agricultural extension officer for region-specific advice."
+        
+        elif variant == 'concise':
+            # Summarize to key points
+            sentences = response.split('.')
+            key_points = sentences[:3]  # Take first 3 sentences
+            return '. '.join(key_points) + "."
+        
+        elif variant == 'structured':
+            # Add structure with emoji bullets
+            structured = response.replace('\n\n', '\n\n• ')
+            return f"📋 Structured Guide:\n\n• {structured}"
+        
+        return response
+
+# Enhanced Flask Application
+app = Flask(__name__)
+CORS(app)
+
+# Rate limiting
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour", "10 per minute"]
+)
+limiter.init_app(app)
+
+# Global instances
+enhanced_soybot = None
+ab_testing = ABTestingFramework()
+context_enhancer = ContextAwareEnhancer()
+
+def initialize_enhanced_soybot():
+    """Initialize the enhanced SoyBot system"""
+    global enhanced_soybot
+    
+    try:
+        logger.info("Initializing Enhanced SoyBot System...")
+        enhanced_soybot = MultiAgentSoyBot()
+        enhanced_soybot.initialize()
+        logger.info("Enhanced SoyBot System ready!")
+        return True
     except Exception as e:
-        print(f"❌ Error initializing SoyBot: {str(e)}")
-        print(traceback.format_exc())
-        is_initialized = False
+        logger.error(f"Failed to initialize Enhanced SoyBot: {e}")
         return False
 
-def detect_language(text):
-    """Detect the language of input text"""
-    # Check for Devanagari script (Hindi)
-    if any('\u0900' <= char <= '\u097F' for char in text):
-        return 'hindi'
-    # Check for basic English
-    elif text.isascii():
-        return 'english'
-    else:
-        return 'unknown'
-
-def format_response(response_text, language):
-    """Format response text properly for display and speech"""
-    try:
-        # Clean up any encoding issues
-        if isinstance(response_text, bytes):
-            response_text = response_text.decode('utf-8')
-        
-        # Ensure proper line breaks and formatting
-        formatted_text = response_text.strip()
-        
-        # Add language-specific formatting improvements
-        if language == 'hindi':
-            # Ensure proper spacing around Hindi text
-            formatted_text = formatted_text.replace('।', '। ')
-            formatted_text = formatted_text.replace(':', ': ')
-        
-        # Clean up markdown for better speech synthesis
-        # Remove excessive markdown formatting that doesn't help with speech
-        formatted_text = formatted_text.replace('**', '')
-        formatted_text = formatted_text.replace('*', '')
-        formatted_text = formatted_text.replace('###', '')
-        formatted_text = formatted_text.replace('##', '')
-        formatted_text = formatted_text.replace('#', '')
-        
-        return formatted_text
-    except Exception as e:
-        return f"Response formatting error: {str(e)}"
-
-# Enhanced HTML template with speech integration
+# Enhanced HTML Template with Modern UI
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SoyBot - Voice-Enabled AI Farming Assistant</title>
+    <title>Enhanced SoyBot - AI-Powered Farming Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+Devanagari:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        :root {
+            --primary: #2E7D32;
+            --primary-light: #4CAF50;
+            --primary-dark: #1B5E20;
+            --secondary: #FF8F00;
+            --accent: #8BC34A;
+            --background: linear-gradient(135deg, #E8F5E8 0%, #F1F8E9 100%);
+            --surface: #FFFFFF;
+            --surface-variant: #F5F5F5;
+            --on-surface: #1C1B1F;
+            --shadow: rgba(46, 125, 50, 0.15);
+            --border-radius: 16px;
+            --animation-duration: 0.3s;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -161,758 +930,937 @@ HTML_TEMPLATE = """
         }
 
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Inter', 'Noto Sans Devanagari', sans-serif;
+            background: var(--background);
+            color: var(--on-surface);
+            line-height: 1.6;
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
         }
 
-        .container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            width: 100%;
-            max-width: 900px;
+        .app-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 50px var(--shadow);
+            background: var(--surface);
+            position: relative;
             overflow: hidden;
         }
 
+        .app-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 300px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            z-index: -1;
+        }
+
+        /* Enhanced Header */
         .header {
-            background: linear-gradient(135deg, #2e7d32, #4caf50);
+            background: transparent;
             color: white;
-            padding: 30px;
+            padding: 2rem;
             text-align: center;
+            position: relative;
+            z-index: 1;
         }
 
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 15px;
+        .logo-container {
+            margin-bottom: 1rem;
         }
 
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
+        .logo {
+            font-size: 4rem;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
         }
 
-        .header .subtitle {
-            font-size: 0.9rem;
-            opacity: 0.8;
-            margin-top: 5px;
+        .title {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
-        .hindi-text {
-            font-family: 'Noto Sans Devanagari', 'Arial Unicode MS', sans-serif;
+        .subtitle {
             font-size: 1.2rem;
-            margin-top: 10px;
+            opacity: 0.95;
+            font-weight: 400;
+            margin-bottom: 1rem;
         }
 
-        .agents-status {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            margin-top: 15px;
-            border-radius: 10px;
-            font-size: 0.9rem;
-        }
-
-        .speech-controls {
-            background: rgba(255,255,255,0.1);
-            padding: 15px;
-            margin-top: 10px;
-            border-radius: 10px;
-            font-size: 0.9rem;
+        .feature-tags {
             display: flex;
+            gap: 1rem;
             justify-content: center;
             flex-wrap: wrap;
-            gap: 10px;
+            margin-top: 1rem;
         }
 
-        .speech-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s;
+        .feature-tag {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        /* Enhanced Status Bar */
+        .status-bar {
+            background: var(--surface);
+            padding: 1.5rem;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            margin: -1rem 2rem 0;
+            box-shadow: 0 4px 20px var(--shadow);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 2rem;
+            align-items: center;
+            position: relative;
+            z-index: 2;
+        }
+
+        .status-info {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 1rem;
         }
 
-        .speech-btn:hover {
-            background: rgba(255,255,255,0.3);
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--surface-variant);
+            border-radius: 1rem;
+            font-size: 0.9rem;
         }
 
-        .speech-btn.active {
-            background: #ff5722;
-            border-color: #ff5722;
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+            animation: pulse-glow 2s infinite;
         }
 
-        .language-btn {
-            background: rgba(255,255,255,0.2);
-            border: 1px solid rgba(255,255,255,0.3);
-            color: white;
-            padding: 8px 15px;
-            border-radius: 20px;
+        .metrics-display {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--on-surface);
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        /* Enhanced Chat Area */
+        .chat-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            margin: 0 2rem;
+            background: var(--surface);
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            box-shadow: 0 4px 20px var(--shadow);
+            overflow: hidden;
+        }
+
+        .quick-actions {
+            padding: 2rem;
+            background: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
+
+        .quick-actions h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quick-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1rem;
+        }
+
+        .quick-btn {
+            background: var(--surface);
+            border: 1px solid #e0e0e0;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
             cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s;
+            transition: all var(--animation-duration) ease;
+            text-align: left;
+            position: relative;
+            overflow: hidden;
+            transform: translateY(0);
         }
 
-        .language-btn.active {
-            background: #2196f3;
-            border-color: #2196f3;
+        .quick-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(76, 175, 80, 0.1), transparent);
+            transition: left 0.6s ease;
         }
 
+        .quick-btn:hover {
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px var(--shadow);
+        }
+
+        .quick-btn:hover::before {
+            left: 100%;
+        }
+
+        .quick-btn-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .quick-btn-icon {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .quick-btn-title {
+            font-weight: 600;
+            margin-bottom: 0.3rem;
+            color: var(--on-surface);
+        }
+
+        .quick-btn-desc {
+            font-size: 0.9rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* Enhanced Chat Container */
         .chat-container {
-            height: 500px;
+            flex: 1;
             overflow-y: auto;
-            padding: 30px;
-            background: #f8f9fa;
+            padding: 2rem;
+            background: linear-gradient(to bottom, var(--surface), #fafafa);
+            position: relative;
+            max-height: 500px;
         }
 
         .message {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: flex-start;
-            gap: 15px;
+            max-width: 80%;
+            margin-bottom: 2rem;
+            position: relative;
+            animation: slideInMessage var(--animation-duration) ease-out;
         }
 
         .message.user {
-            flex-direction: row-reverse;
+            margin-left: auto;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.8rem;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+
+        .message.user .message-header {
+            justify-content: flex-end;
         }
 
         .message-content {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 18px;
-            max-width: 70%;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            font-size: 1rem;
-            line-height: 1.5;
-            white-space: pre-wrap;
+            padding: 1.5rem 2rem;
+            border-radius: 1.5rem;
             position: relative;
+            line-height: 1.6;
+            font-size: 1rem;
         }
 
         .message.user .message-content {
-            background: #2e7d32;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
             color: white;
+            border-bottom-right-radius: 0.5rem;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
         }
 
-        .message-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
+        .message.bot .message-content {
+            background: var(--surface);
+            color: var(--on-surface);
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 0.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .agent-badge {
+            display: inline-flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-
-        .user .message-avatar {
-            background: #1976d2;
-        }
-
-        .bot .message-avatar {
-            background: #4caf50;
-        }
-
-        .speak-btn {
+            gap: 0.3rem;
+            background: var(--primary);
+            color: white;
+            padding: 0.2rem 0.6rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
             position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #4caf50;
+            top: -0.5rem;
+            left: 1rem;
+        }
+
+        .quality-indicator {
+            position: absolute;
+            top: 0.5rem;
+            right: 3rem;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+
+        .quality-indicator.medium {
+            background: var(--secondary);
+        }
+
+        .quality-indicator.low {
+            background: #f44336;
+        }
+
+        .speaker-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--primary);
             color: white;
             border: none;
             border-radius: 50%;
-            width: 30px;
-            height: 30px;
+            width: 36px;
+            height: 36px;
             cursor: pointer;
-            font-size: 0.8rem;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.3s;
+            transition: all var(--animation-duration) ease;
+            opacity: 0.8;
         }
 
-        .speak-btn:hover {
-            background: #2e7d32;
+        .speaker-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
         }
 
-        .speak-btn.speaking {
-            background: #ff5722;
-            animation: pulse 1s infinite;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-            100% { transform: scale(1); }
+        /* Enhanced Input Section */
+        .input-section {
+            background: var(--surface);
+            padding: 2rem;
+            border-top: 1px solid #e0e0e0;
         }
 
         .input-container {
-            padding: 25px 30px;
-            background: white;
-            border-top: 1px solid #e0e0e0;
             display: flex;
-            gap: 15px;
+            gap: 1rem;
+            align-items: flex-end;
+            background: var(--surface-variant);
+            border-radius: 2rem;
+            padding: 1rem;
+            border: 2px solid transparent;
+            transition: all var(--animation-duration) ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-container:focus-within {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(46, 125, 50, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .input-field {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 1rem;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: none;
+            outline: none;
+            min-height: 24px;
+            max-height: 120px;
+        }
+
+        .input-actions {
+            display: flex;
+            gap: 0.5rem;
             align-items: center;
         }
 
-        .input-box {
-            flex: 1;
-            padding: 15px 20px;
-            border: 2px solid #e0e0e0;
-            border-radius: 25px;
-            font-size: 1rem;
-            outline: none;
-            transition: border-color 0.3s;
-            font-family: 'Noto Sans Devanagari', 'Arial Unicode MS', sans-serif;
-        }
-
-        .input-box:focus {
-            border-color: #4caf50;
-        }
-
-        .mic-btn {
-            background: #ff5722;
+        .action-btn {
+            background: var(--primary);
             color: white;
             border: none;
-            padding: 15px;
             border-radius: 50%;
+            width: 48px;
+            height: 48px;
             cursor: pointer;
-            font-size: 1.2rem;
-            width: 50px;
-            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s;
-        }
-
-        .mic-btn:hover {
-            background: #e64a19;
-        }
-
-        .mic-btn.listening {
-            background: #4caf50;
-            animation: pulse 1s infinite;
-        }
-
-        .send-btn {
-            background: #4caf50;
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
-            transition: background 0.3s;
-        }
-
-        .send-btn:hover {
-            background: #2e7d32;
-        }
-
-        .send-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
-
-        .sample-questions {
-            padding: 20px 30px;
-            background: #f5f5f5;
-            border-top: 1px solid #e0e0e0;
-        }
-
-        .sample-questions h3 {
-            margin-bottom: 15px;
-            color: #2e7d32;
             font-size: 1.1rem;
+            transition: all var(--animation-duration) ease;
+            position: relative;
+            overflow: hidden;
         }
 
-        .question-btn {
-            display: inline-block;
-            background: white;
-            border: 1px solid #4caf50;
-            color: #2e7d32;
-            padding: 8px 15px;
-            margin: 5px;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            transition: all 0.3s;
-            font-family: 'Noto Sans Devanagari', 'Arial Unicode MS', sans-serif;
+        .action-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            transition: all 0.4s ease;
+            transform: translate(-50%, -50%);
         }
 
-        .question-btn:hover {
-            background: #4caf50;
-            color: white;
+        .action-btn:hover::before {
+            width: 120%;
+            height: 120%;
         }
 
-        .typing-indicator {
-            display: none;
-            padding: 10px 0;
-            font-style: italic;
-            color: #666;
-            text-align: center;
+        .action-btn:hover {
+            transform: translateY(-2px) scale(1.05);
+            box-shadow: 0 6px 20px var(--shadow);
         }
 
-        .error-message {
-            background: #ffebee;
-            color: #c62828;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 10px 0;
-            border-left: 4px solid #c62828;
+        .action-btn.mic {
+            background: var(--surface);
+            color: var(--primary);
+            border: 2px solid var(--primary);
         }
 
-        .status-indicator {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: bold;
-        }
-
-        .status-online {
-            background: #4caf50;
-            color: white;
-        }
-
-        .status-offline {
+        .action-btn.mic.recording {
             background: #f44336;
             color: white;
+            border-color: #f44336;
+            animation: pulse-record 1.5s infinite;
         }
 
-        .speech-status {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px 15px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            background: #2196f3;
-            color: white;
+        /* Enhanced Animations */
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-10px) rotate(1deg); }
+            66% { transform: translateY(-5px) rotate(-1deg); }
+        }
+
+        @keyframes slideInMessage {
+            from {
+                opacity: 0;
+                transform: translateY(30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes pulse-glow {
+            0% { 
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+                transform: scale(1);
+            }
+            70% { 
+                box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+                transform: scale(1.1);
+            }
+            100% { 
+                box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+                transform: scale(1);
+            }
+        }
+
+        @keyframes pulse-record {
+            0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .app-container {
+                margin: 0;
+                border-radius: 0;
+            }
+
+            .header {
+                padding: 1.5rem 1rem;
+            }
+
+            .title {
+                font-size: 2rem;
+            }
+
+            .status-bar {
+                margin: -0.5rem 1rem 0;
+                padding: 1rem;
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .chat-section {
+                margin: 0 1rem;
+            }
+
+            .quick-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .message {
+                max-width: 90%;
+            }
+
+            .feature-tags {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+
+        /* Loading and States */
+        .typing-indicator {
             display: none;
+            max-width: 80%;
+            margin-bottom: 2rem;
+        }
+
+        .typing-content {
+            background: var(--surface);
+            border: 1px solid #e0e0e0;
+            border-radius: 1.5rem;
+            border-bottom-left-radius: 0.5rem;
+            padding: 1.5rem 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            animation: typing-bounce 1.4s infinite ease-in-out;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing-bounce {
+            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <div class="status-indicator" id="statusIndicator">🔄 Connecting...</div>
-    <div class="speech-status" id="speechStatus">🎤 Listening...</div>
-    
-    <div class="container">
-        <div class="header">
-            <h1>🤖 SoyBot</h1>
-            <p>Voice-Enabled Soybean Farming Expert</p>
-            <div class="subtitle">Multilingual AI Assistant with Speech</div>
-            <div class="hindi-text">आवाज़ से बोलें - सोयाबीन खेती सलाहकार</div>
-            <div class="agents-status" id="agentsStatus">
-                🔄 Initializing SoyBot...
+    <div class="app-container">
+        <!-- Enhanced Header -->
+        <header class="header">
+            <div class="logo-container">
+                <span class="logo">🌱</span>
             </div>
-            <div class="speech-controls">
-    <button class="speech-btn" id="autoSpeakBtn" onclick="toggleAutoSpeak()">🔊 Auto-Speak: ON</button>
-    <button class="speech-btn" onclick="testSpeech()">🎵 Test Speech</button>
-    <button class="speech-btn" id="stopSpeakBtn" onclick="stopSpeaking()">⏹️ Stop Audio</button>
-    <button class="language-btn" id="hindiBtn" onclick="setLanguage('hi-IN')">🇮🇳 हिंदी</button>
-    <button class="language-btn" id="englishBtn" onclick="setLanguage('en-US')">🇺🇸 English</button>
-    <select id="voiceSelect" class="speech-btn" onchange="setVoice()">
-        <option value="">Default Voice</option>
-    </select>
-</div>
-        </div>
+            <h1 class="title">Enhanced SoyBot</h1>
+            <p class="subtitle">
+                Multi-Agent AI Farming Assistant | बहु-एजेंट AI खेती सहायक
+                <br>
+                <small>Powered by Advanced Machine Learning & ICAR-IISR Guidelines</small>
+            </p>
+            <div class="feature-tags">
+                <span class="feature-tag">🤖 Multi-Agent System</span>
+                <span class="feature-tag">🌍 Multilingual Support</span>
+                <span class="feature-tag">📊 Quality Assessment</span>
+                <span class="feature-tag">🎯 Intent Classification</span>
+                <span class="feature-tag">📋 Context Awareness</span>
+            </div>
+        </header>
 
-        <div class="chat-container" id="chatContainer">
-            <div class="message bot">
-                <div class="message-avatar">🤖</div>
-                <div class="message-content">
-                    <strong>नमस्कार! Welcome to Voice-Enabled SoyBot!</strong>
-
-I'm your soybean farming expert with speech capabilities:
-- 🎤 Click the microphone to speak your questions
-- 🔊 I'll speak my answers back to you
-- ⏹️ Click "Stop Audio" to stop speech anytime
-- 📚 All answers based strictly on soybean farming PDF
-- 🌐 Support for हिंदी, English, and मराठी
-- 🎯 No external knowledge - only PDF content
-
-Try speaking: "सोयाबीन की बुवाई कब करें?" or "When to sow soybean?"
-Keyboard shortcuts: Ctrl+M (mic), Ctrl+S (stop audio)
-                    <button class="speak-btn" onclick="speakMessage(this)">🔊</button>
+        <!-- Enhanced Status Bar -->
+        <div class="status-bar">
+            <div class="status-info">
+                <div class="agent-status">
+                    <div class="status-dot"></div>
+                    <span id="agent-status">Multi-Agent System Ready</span>
+                </div>
+            </div>
+            
+            <div class="metrics-display">
+                <div>Queries Processed: <span id="query-count">0</span></div>
+                <div>Avg Response Time: <span id="avg-time">0.0s</span></div>
+                <div>Quality Score: <span id="quality-score">95%</span></div>
+            </div>
+            
+            <div class="controls">
+                <select id="language-select" style="padding: 0.5rem; border-radius: 0.5rem; border: 1px solid #ddd;">
+                    <option value="en-US">🇺🇸 English</option>
+                    <option value="hi-IN">🇮🇳 हिंदी</option>
+                    <option value="mr-IN">🇮🇳 मराठी</option>
+                </select>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span>Auto-speak</span>
+                    <div class="toggle-switch active" id="auto-speak-toggle" style="position: relative; width: 44px; height: 24px; background: var(--primary); border-radius: 12px; cursor: pointer; transition: background 0.3s;">
+                        <div class="toggle-slider" style="position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; transition: transform 0.3s; transform: translateX(18px);"></div>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="sample-questions">
-            <h3>Sample Questions / नमूना प्रश्न (Click to ask or speak them):</h3>
-            <span class="question-btn" onclick="askQuestion('सोयाबीन की बुवाई का सबसे अच्छा समय क्या है?')">सोयाबीन की बुवाई का समय?</span>
-            <span class="question-btn" onclick="askQuestion('What is the best time for soybean sowing?')">Best sowing time?</span>
-            <span class="question-btn" onclick="askQuestion('सोयाबीन में कौन से रोग लगते हैं?')">सोयाबीन के रोग?</span>
-            <span class="question-btn" onclick="askQuestion('How much fertilizer should be used for soybean?')">Fertilizer amount?</span>
-            <span class="question-btn" onclick="askQuestion('सोयाबीन को कितना पानी चाहिए?')">पानी की आवश्यकता?</span>
+        <!-- Chat Section -->
+        <div class="chat-section">
+            <!-- Enhanced Quick Actions -->
+            <div class="quick-actions">
+                <h3>
+                    <i class="fas fa-zap"></i>
+                    Expert Quick Queries | विशेषज्ञ त्वरित प्रश्न
+                </h3>
+                <div class="quick-grid">
+                    <button class="quick-btn" onclick="askQuestion('सोयाबीन की बुवाई का सबसे अच्छा समय क्या है?')">
+                        <div class="quick-btn-content">
+                            <div class="quick-btn-icon"><i class="fas fa-calendar-alt"></i></div>
+                            <div class="quick-btn-title">बुवाई का समय</div>
+                            <div class="quick-btn-desc">Best sowing time guidance</div>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-btn" onclick="askQuestion('My soybean plants have yellow spots on leaves. What could be the problem?')">
+                        <div class="quick-btn-content">
+                            <div class="quick-btn-icon"><i class="fas fa-leaf"></i></div>
+                            <div class="quick-btn-title">Disease Diagnosis</div>
+                            <div class="quick-btn-desc">Plant health expert analysis</div>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-btn" onclick="askQuestion('सोयाबीन में कौन सा फर्टिलाइजर कब डालना चाहिए?')">
+                        <div class="quick-btn-content">
+                            <div class="quick-btn-icon"><i class="fas fa-flask"></i></div>
+                            <div class="quick-btn-title">पोषण प्रबंधन</div>
+                            <div class="quick-btn-desc">Nutrition expert recommendations</div>
+                        </div>
+                    </button>
+                    
+                    <button class="quick-btn" onclick="askQuestion('Which soybean varieties are best for drought conditions?')">
+                        <div class="quick-btn-content">
+                            <div class="quick-btn-icon"><i class="fas fa-seedling"></i></div>
+                            <div class="quick-btn-title">Variety Selection</div>
+                            <div class="quick-btn-desc">Crop management specialist advice</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Enhanced Chat Container -->
+            <div class="chat-container" id="chat-container">
+                <div class="message bot">
+                    <div class="message-header">
+                        <i class="fas fa-robot"></i>
+                        <span>Enhanced SoyBot</span>
+                        <span>•</span>
+                        <span id="welcome-time"></span>
+                    </div>
+                    <div class="message-content">
+                        <div class="agent-badge">
+                            <i class="fas fa-users"></i>
+                            Multi-Agent
+                        </div>
+नमस्कार! Welcome to Enhanced SoyBot! 🚀
+
+I'm your advanced multi-agent farming assistant with specialized experts:
+
+🌾 <strong>Crop Management Specialist</strong> - Planting, irrigation, growth stages
+🦠 <strong>Plant Health Specialist</strong> - Disease diagnosis & pest control  
+🧪 <strong>Nutrition Expert</strong> - Soil health & fertilizer management
+🎯 <strong>Smart Coordinator</strong> - Query routing & comprehensive advice
+
+<strong>New Features:</strong>
+✨ Intent classification for precise responses
+✨ Response quality assessment  
+✨ Context-aware recommendations
+✨ Multi-language processing
+✨ Performance monitoring
+
+Ask me anything about soybean cultivation - I'll route your question to the right specialist!
+                        <button class="speaker-btn" onclick="speakText(this.parentElement)">
+                            <i class="fas fa-volume-up"></i>
+                        </button>
+                        <div class="quality-indicator" title="High Quality Response"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Typing Indicator -->
+            <div class="typing-indicator" id="typing-indicator">
+                <div class="typing-content">
+                    <div class="typing-dots">
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                        <div class="typing-dot"></div>
+                    </div>
+                    <span>AI Specialists are analyzing...</span>
+                </div>
+            </div>
         </div>
 
-        <div class="typing-indicator" id="typingIndicator">
-            🤖 SoyBot is thinking...
-        </div>
-
-        <div class="input-container">
-            <button class="mic-btn" id="micBtn" onclick="toggleListening()">🎤</button>
-            <input type="text" 
-                   id="questionInput" 
-                   class="input-box" 
-                   placeholder="Type or speak your question... टाइप करें या बोलें..."
-                   onkeypress="handleKeyPress(event)">
-            <button class="send-btn" onclick="sendQuestion()" id="sendBtn">Send</button>
+        <!-- Enhanced Input Section -->
+        <div class="input-section">
+            <div class="input-container">
+                <textarea 
+                    id="query-input" 
+                    class="input-field"
+                    placeholder="Ask your farming question... Our AI specialists will analyze and provide expert guidance..."
+                    rows="1"
+                    aria-label="Enter your farming question"
+                ></textarea>
+                <div class="input-actions">
+                    <button id="mic-btn" class="action-btn mic" title="Voice Input">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <button id="ask-btn" class="action-btn" title="Send to AI Specialists">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
-        // Global variables for speech functionality
-        let recognition = null;
-        let isListening = false;
+        // Enhanced JavaScript with new features
+        const chatContainer = document.getElementById('chat-container');
+        const queryInput = document.getElementById('query-input');
+        const askBtn = document.getElementById('ask-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const typingIndicator = document.getElementById('typing-indicator');
+        const autoSpeakToggle = document.getElementById('auto-speak-toggle');
+        
+        // Metrics elements
+        const queryCountEl = document.getElementById('query-count');
+        const avgTimeEl = document.getElementById('avg-time');
+        const qualityScoreEl = document.getElementById('quality-score');
+        const agentStatusEl = document.getElementById('agent-status');
+        
+        let recognition;
+        let isRecording = false;
+        let synthesis = window.speechSynthesis;
         let autoSpeak = true;
-        let currentVoice = null;
-        let speechSynthesis = window.speechSynthesis;
-        let availableVoices = [];
-        let recognitionLanguage = 'hi-IN'; // Default to Hindi
+        let queryCount = 0;
+        let totalResponseTime = 0;
+        let qualityScores = [];
 
-        // DOM elements
-        const chatContainer = document.getElementById('chatContainer');
-        const questionInput = document.getElementById('questionInput');
-        const sendBtn = document.getElementById('sendBtn');
-        const micBtn = document.getElementById('micBtn');
-        const typingIndicator = document.getElementById('typingIndicator');
-        const statusIndicator = document.getElementById('statusIndicator');
-        const agentsStatus = document.getElementById('agentsStatus');
-        const speechStatus = document.getElementById('speechStatus');
-        const autoSpeakBtn = document.getElementById('autoSpeakBtn');
-        const voiceSelect = document.getElementById('voiceSelect');
-        const hindiBtn = document.getElementById('hindiBtn');
-        const englishBtn = document.getElementById('englishBtn');
+        // Initialize
+        document.getElementById('welcome-time').textContent = new Date().toLocaleTimeString();
 
-        // Set recognition language
-        function setLanguage(lang) {
-            recognitionLanguage = lang;
-            recognition.lang = lang;
-            
-            // Update UI
-            hindiBtn.classList.toggle('active', lang === 'hi-IN');
-            englishBtn.classList.toggle('active', lang === 'en-US');
-            
-            // Set status message
-            speechStatus.textContent = lang === 'hi-IN' 
-                ? 'भाषा हिंदी में सेट की गई' 
-                : 'Language set to English';
-            speechStatus.style.display = 'block';
-            setTimeout(() => {
-                speechStatus.style.display = 'none';
-            }, 2000);
-        }
+        // Auto-resize textarea
+        queryInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
 
-        // Initialize speech recognition
+        // Toggle auto-speak
+        autoSpeakToggle.addEventListener('click', function() {
+            autoSpeak = !autoSpeak;
+            this.classList.toggle('active', autoSpeak);
+            const slider = this.querySelector('.toggle-slider');
+            slider.style.transform = autoSpeak ? 'translateX(18px)' : 'translateX(2px)';
+            this.style.background = autoSpeak ? 'var(--primary)' : '#ccc';
+        });
+
+        // Speech recognition setup
         function initSpeechRecognition() {
             if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
                 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
                 recognition = new SpeechRecognition();
-                
                 recognition.continuous = false;
                 recognition.interimResults = false;
-                recognition.maxAlternatives = 1;
-                
-                // Set initial language
-                recognition.lang = recognitionLanguage;
-                
-                recognition.onstart = function() {
-                    console.log('Speech recognition started');
-                    isListening = true;
-                    micBtn.classList.add('listening');
-                    speechStatus.style.display = 'block';
-                    speechStatus.textContent = recognitionLanguage === 'hi-IN' 
-                        ? '🎤 सुन रहा हूं...' 
-                        : '🎤 Listening...';
-                };
-                
-                recognition.onresult = function(event) {
+                recognition.lang = 'hi-IN';
+
+                recognition.onresult = (event) => {
                     const transcript = event.results[0][0].transcript;
-                    console.log('Speech recognized:', transcript);
-                    
-                    // Check for voice commands first
-                    if (handleVoiceCommand(transcript)) {
-                        speechStatus.textContent = recognitionLanguage === 'hi-IN' 
-                            ? '✅ कमांड क्रियान्वित!' 
-                            : '✅ Command executed!';
-                        setTimeout(() => {
-                            speechStatus.style.display = 'none';
-                        }, 2000);
-                        return;
-                    }
-                    
-                    // Otherwise, use as regular input
-                    questionInput.value = transcript;
-                    speechStatus.textContent = recognitionLanguage === 'hi-IN' 
-                        ? '✅ समझ गया!' 
-                        : '✅ Got it!';
-                    setTimeout(() => {
-                        speechStatus.style.display = 'none';
-                    }, 2000);
+                    queryInput.value = transcript;
+                    queryInput.style.height = 'auto';
+                    queryInput.style.height = Math.min(queryInput.scrollHeight, 120) + 'px';
+                    stopRecording();
                 };
-                
-                recognition.onerror = function(event) {
+
+                recognition.onerror = (event) => {
                     console.error('Speech recognition error:', event.error);
-                    speechStatus.textContent = '❌ Error: ' + event.error;
-                    setTimeout(() => {
-                        speechStatus.style.display = 'none';
-                    }, 3000);
+                    stopRecording();
                 };
-                
-                recognition.onend = function() {
-                    console.log('Speech recognition ended');
-                    isListening = false;
-                    micBtn.classList.remove('listening');
-                };
-                
-                console.log('Speech recognition initialized');
+
+                recognition.onend = stopRecording;
             } else {
-                console.log('Speech recognition not supported');
                 micBtn.style.display = 'none';
             }
         }
 
-        // Initialize text-to-speech
-        function initTextToSpeech() {
-            if ('speechSynthesis' in window) {
-                speechSynthesis.onvoiceschanged = function() {
-                    availableVoices = speechSynthesis.getVoices();
-                    populateVoiceSelect();
-                    
-                    // Set default voice to first Hindi voice if available
-                    const hindiVoices = availableVoices.filter(v => v.lang.includes('hi'));
-                    if (hindiVoices.length > 0) {
-                        currentVoice = hindiVoices[0];
-                        voiceSelect.value = availableVoices.indexOf(hindiVoices[0]);
-                    }
-                };
-                
-                // Load voices
-                availableVoices = speechSynthesis.getVoices();
-                if (availableVoices.length > 0) {
-                    populateVoiceSelect();
-                }
-                
-                console.log('Text-to-speech initialized');
-            } else {
-                console.log('Text-to-speech not supported');
-            }
+        function startRecording() {
+            isRecording = true;
+            micBtn.classList.add('recording');
+            micBtn.innerHTML = '<i class="fas fa-stop"></i>';
+            agentStatusEl.textContent = 'Listening...';
         }
 
-        // Populate voice selection dropdown
-        function populateVoiceSelect() {
-            voiceSelect.innerHTML = '<option value="">Default Voice</option>';
-            
-            availableVoices.forEach((voice, index) => {
-                const option = document.createElement('option');
-                option.value = index;
-                option.textContent = `${voice.name} (${voice.lang})`;
-                voiceSelect.appendChild(option);
-            });
+        function stopRecording() {
+            isRecording = false;
+            micBtn.classList.remove('recording');
+            micBtn.innerHTML = '<i class="fas fa-microphone"></i>';
+            agentStatusEl.textContent = 'Multi-Agent System Ready';
         }
 
-        // Set selected voice
-        function setVoice() {
-            const selectedIndex = voiceSelect.value;
-            if (selectedIndex !== '') {
-                currentVoice = availableVoices[selectedIndex];
-                console.log('Voice set to:', currentVoice.name);
-                
-                // Show confirmation
-                speechStatus.textContent = `Voice set to: ${currentVoice.name}`;
-                speechStatus.style.display = 'block';
-                setTimeout(() => {
-                    speechStatus.style.display = 'none';
-                }, 2000);
-            } else {
-                currentVoice = null;
-            }
-        }
-
-        // Toggle listening
-        function toggleListening() {
-            if (!recognition) {
-                alert('Speech recognition not supported in this browser');
-                return;
-            }
-            
-            if (isListening) {
-                recognition.stop();
-            } else {
+        function toggleRecording() {
+            if (!recognition) return;
+            if (!isRecording) {
                 recognition.start();
+                startRecording();
+            } else {
+                recognition.stop();
+                stopRecording();
             }
         }
 
-        // Speak text
-        function speakText(text) {
-            if (!('speechSynthesis' in window)) {
-                console.log('Text-to-speech not supported');
+        // Enhanced text-to-speech
+        function speakText(messageElement) {
+            const text = messageElement.textContent.replace(/[🔊📢🎵]/g, '').trim();
+            const speakerBtn = messageElement.querySelector('.speaker-btn i');
+            
+            if (synthesis.speaking) {
+                synthesis.cancel();
+                if (speakerBtn) speakerBtn.className = 'fas fa-volume-up';
                 return;
             }
-            
-            // Stop any current speech
-            speechSynthesis.cancel();
-            
-            const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Set language based on detected content
-            if (text.match(/[\u0900-\u097F]/)) {
+
+            if (text) {
+                const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = 'hi-IN';
-            } else {
-                utterance.lang = 'en-US';
+                utterance.rate = 0.9;
+                utterance.pitch = 1.0;
+
+                if (speakerBtn) speakerBtn.className = 'fas fa-volume-mute';
+
+                utterance.onend = () => {
+                    if (speakerBtn) speakerBtn.className = 'fas fa-volume-up';
+                };
+
+                synthesis.speak(utterance);
             }
-            
-            // Set voice if selected
-            if (currentVoice) {
-                utterance.voice = currentVoice;
-            }
-            
-            // Set speech parameters
-            utterance.rate = 0.9; // Slightly faster than before
-            utterance.pitch = 1;
-            utterance.volume = 1;
-            
-            utterance.onstart = function() {
-                console.log('Speech synthesis started');
-            };
-            
-            utterance.onend = function() {
-                console.log('Speech synthesis ended');
-            };
-            
-            utterance.onerror = function(event) {
-                console.error('Speech synthesis error:', event.error);
-            };
-            
-            speechSynthesis.speak(utterance);
         }
 
-        // Speak message from button
-        function speakMessage(button) {
-            const messageContent = button.parentElement;
-            const text = messageContent.textContent.replace('🔊', '').trim();
-            
-            button.classList.add('speaking');
-            speakText(text);
-            
-            // Remove speaking class after a delay
-            setTimeout(() => {
-                button.classList.remove('speaking');
-            }, 3000);
-        }
-
-        // Toggle auto-speak
-        function toggleAutoSpeak() {
-            autoSpeak = !autoSpeak;
-            autoSpeakBtn.textContent = autoSpeak ? '🔊 Auto-Speak: ON' : '🔊 Auto-Speak: OFF';
-            autoSpeakBtn.classList.toggle('active', autoSpeak);
-        }
-
-        // Test speech
-        function testSpeech() {
-            const testText = "नमस्कार! मैं सोयबॉट हूं। Hello! I am SoyBot.";
-            speakText(testText);
-        }
-
-        // Check server status
-        function checkServerStatus() {
-            fetch('/api/status')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'ready') {
-                        statusIndicator.textContent = '🟢 SoyBot Online';
-                        statusIndicator.className = 'status-indicator status-online';
-                        agentsStatus.innerHTML = '✅ SoyBot Ready<br>📚 PDF Knowledge Loaded<br>🎤 Speech Ready';
-                    } else {
-                        statusIndicator.textContent = '🟡 Initializing...';
-                        statusIndicator.className = 'status-indicator status-offline';
-                        agentsStatus.textContent = '🔄 Loading SoyBot...';
-                    }
-                })
-                .catch(error => {
-                    statusIndicator.textContent = '🔴 Offline';
-                    statusIndicator.className = 'status-indicator status-offline';
-                    agentsStatus.textContent = '❌ SoyBot Offline';
-                });
-        }
-
-        // Stop speaking function
-function stopSpeaking() {
-    if ('speechSynthesis' in window) {
-        speechSynthesis.cancel();
-        console.log('Speech stopped by user');
-        
-        // Update all speaking buttons
-        const speakBtns = document.querySelectorAll('.speak-btn.speaking');
-        speakBtns.forEach(btn => btn.classList.remove('speaking'));
-        
-        // Show confirmation
-        speechStatus.textContent = recognitionLanguage === 'hi-IN' 
-            ? '⏹️ आवाज़ बंद की गई' 
-            : '⏹️ Audio stopped';
-        speechStatus.style.display = 'block';
-        setTimeout(() => {
-            speechStatus.style.display = 'none';
-        }, 2000);
-    }
-}
-
-        // Add message to chat
-        function addMessage(content, isUser = false) {
+        // Enhanced message display
+        function addMessage(text, sender, metadata = {}) {
             const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user' : 'bot'}`;
+            messageDiv.className = `message ${sender}`;
             
-            const avatar = document.createElement('div');
-            avatar.className = 'message-avatar';
-            avatar.textContent = isUser ? '👤' : '🤖';
+            const timestamp = new Date().toLocaleTimeString();
+            const senderName = sender === 'user' ? 'You' : 'Enhanced SoyBot';
+            const senderIcon = sender === 'user' ? 'fas fa-user' : 'fas fa-robot';
             
-            const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            messageContent.textContent = content;
+            let agentBadge = '';
+            let qualityIndicator = '';
             
-            // Add speak button for bot messages
-            if (!isUser) {
-                const speakBtn = document.createElement('button');
-                speakBtn.className = 'speak-btn';
-                speakBtn.textContent = '🔊';
-                speakBtn.onclick = function() { speakMessage(this); };
-                messageContent.appendChild(speakBtn);
+            if (sender === 'bot' && metadata.agent_used) {
+                const agentNames = {
+                    'crop_management': '🌾 Crop Expert',
+                    'plant_health': '🦠 Health Specialist', 
+                    'nutrition': '🧪 Nutrition Expert',
+                    'coordinator': '🎯 Coordinator'
+                };
+                agentBadge = `<div class="agent-badge"><i class="fas fa-user-md"></i> ${agentNames[metadata.agent_used] || 'Specialist'}</div>`;
             }
             
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(messageContent);
+            if (sender === 'bot' && metadata.quality_assessment) {
+                const confidence = metadata.quality_assessment.overall_confidence;
+                const qualityClass = confidence >= 0.8 ? '' : confidence >= 0.6 ? 'medium' : 'low';
+                const qualityTitle = `Quality Score: ${(confidence * 100).toFixed(1)}%`;
+                qualityIndicator = `<div class="quality-indicator ${qualityClass}" title="${qualityTitle}"></div>`;
+            }
             
+            messageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="${senderIcon}"></i>
+                    <span>${senderName}</span>
+                    <span>•</span>
+                    <span>${timestamp}</span>
+                </div>
+                <div class="message-content">
+                    ${agentBadge}
+                    ${text}
+                    ${sender === 'bot' ? '<button class="speaker-btn" onclick="speakText(this.parentElement)"><i class="fas fa-volume-up"></i></button>' : ''}
+                    ${qualityIndicator}
+                </div>
+            `;
+
             chatContainer.appendChild(messageDiv);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            
-            // Auto-speak bot responses
-            if (!isUser && autoSpeak) {
+
+            // Auto-speak bot messages
+            if (sender === 'bot' && autoSpeak) {
                 setTimeout(() => {
-                    speakText(content);
+                    const messageContent = messageDiv.querySelector('.message-content');
+                    if (messageContent) speakText(messageContent);
                 }, 500);
+            }
+
+            // Update quality scores
+            if (sender === 'bot' && metadata.quality_assessment) {
+                qualityScores.push(metadata.quality_assessment.overall_confidence);
+                updateMetrics();
             }
         }
 
-        // Show/hide typing indicator
+        function updateMetrics() {
+            queryCountEl.textContent = queryCount;
+            
+            if (queryCount > 0) {
+                avgTimeEl.textContent = (totalResponseTime / queryCount).toFixed(1) + 's';
+            }
+            
+            if (qualityScores.length > 0) {
+                const avgQuality = qualityScores.reduce((a, b) => a + b, 0) / qualityScores.length;
+                qualityScoreEl.textContent = (avgQuality * 100).toFixed(1) + '%';
+            }
+        }
+
         function showTyping() {
             typingIndicator.style.display = 'block';
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -922,189 +1870,182 @@ function stopSpeaking() {
             typingIndicator.style.display = 'none';
         }
 
-        // Send question
+        // Enhanced send question
         async function sendQuestion() {
-            const question = questionInput.value.trim();
+            const question = queryInput.value.trim();
             if (!question) return;
 
-            // Add user message
-            addMessage(question, true);
-            questionInput.value = '';
-            
-            // Disable send button and show typing
-            sendBtn.disabled = true;
-            sendBtn.textContent = 'Processing...';
+            const startTime = performance.now();
+            queryCount++;
+
+            addMessage(question, 'user');
+            queryInput.value = '';
+            queryInput.style.height = 'auto';
+
             showTyping();
-            
+            askBtn.disabled = true;
+            askBtn.innerHTML = '<div class="spinner"></div>';
+            agentStatusEl.textContent = 'AI Specialists analyzing...';
+
             try {
-                const response = await fetch('/api/ask', {
+                const response = await fetch('/api/enhanced-ask', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ question: question })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
                 });
 
                 const data = await response.json();
+                const responseTime = (performance.now() - startTime) / 1000;
+                totalResponseTime += responseTime;
                 
                 hideTyping();
-                
+
                 if (data.success) {
-                    addMessage(data.response);
+                    addMessage(data.response, 'bot', {
+                        agent_used: data.agent_used,
+                        quality_assessment: data.quality_assessment,
+                        language_info: data.language_info,
+                        intent_info: data.intent_info
+                    });
+                    agentStatusEl.textContent = `Response from ${data.agent_used || 'AI Specialist'}`;
                 } else {
-                    addMessage(`Error: ${data.error}`, false);
+                    addMessage(`Sorry, I encountered an error: ${data.error}`, 'bot');
+                    agentStatusEl.textContent = 'Error occurred';
                 }
-                
             } catch (error) {
                 hideTyping();
-                addMessage('Sorry, I encountered a network error. Please try again later.', false);
                 console.error('Error:', error);
+                addMessage('Sorry, something went wrong. Please check your connection and try again.', 'bot');
+                agentStatusEl.textContent = 'Connection error';
             } finally {
-                sendBtn.disabled = false;
-                sendBtn.textContent = 'Send';
+                askBtn.disabled = false;
+                askBtn.innerHTML = '<i class="fas fa-paper-plane"></i>';
+                updateMetrics();
             }
         }
 
-        // Ask predefined question
         function askQuestion(question) {
-            questionInput.value = question;
+            queryInput.value = question;
+            queryInput.style.height = 'auto';
+            queryInput.style.height = Math.min(queryInput.scrollHeight, 120) + 'px';
             sendQuestion();
         }
 
-        // Handle key press
-        function handleKeyPress(event) {
-            if (event.key === 'Enter') {
+        // Event listeners
+        askBtn.addEventListener('click', sendQuestion);
+        micBtn.addEventListener('click', toggleRecording);
+
+        queryInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendQuestion();
             }
-        }
+        });
 
-        // Initialize everything when page loads
-        window.onload = function() {
-            console.log('Initializing SoyBot with speech capabilities...');
-            
-            // Initialize speech features
-            initSpeechRecognition();
-            initTextToSpeech();
-            
-            // Set initial language
-            setLanguage(recognitionLanguage);
-            
-            // Check server status
-            checkServerStatus();
-            
-            // Focus on input
-            questionInput.focus();
-            
-            // Add keyboard shortcuts
-            document.addEventListener('keydown', function(event) {
-                // Ctrl/Cmd + M for microphone
-                if ((event.ctrlKey || event.metaKey) && event.key === 'm') {
-                    event.preventDefault();
-                    toggleListening();
+        // Initialize systems
+        initSpeechRecognition();
+        queryInput.focus();
+
+        // Status check
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/api/enhanced-status');
+                const data = await response.json();
+                
+                if (data.success && data.system_status === 'ready') {
+                    agentStatusEl.textContent = 'Multi-Agent System Ready';
+                } else {
+                    agentStatusEl.textContent = 'System Initializing...';
                 }
                 
-                // Ctrl/Cmd + S for stop speech
-                if ((event.ctrlKey || event.metaKey) && event.key === 's') {
-                    event.preventDefault();
-                    speechSynthesis.cancel();
+                if (data.performance_metrics) {
+                    const metrics = data.performance_metrics;
+                    if (metrics.total_queries > 0) {
+                        queryCountEl.textContent = metrics.total_queries;
+                        avgTimeEl.textContent = metrics.average_response_time.toFixed(1) + 's';
+                        if (metrics.average_quality_score) {
+                            qualityScoreEl.textContent = (metrics.average_quality_score * 100).toFixed(1) + '%';
+                        }
+                    }
                 }
-            });
-            
-            console.log('SoyBot speech integration initialized');
-            console.log('Keyboard shortcuts:');
-            console.log('- Ctrl/Cmd + M: Toggle microphone');
-            console.log('- Ctrl/Cmd + S: Stop speech');
-        };
-
-        // Periodic status check
-        setInterval(checkServerStatus, 30000); // Check every 30 seconds
-        
-        // Handle page visibility change (pause speech when tab is hidden)
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                speechSynthesis.cancel();
-                if (recognition && isListening) {
-                    recognition.stop();
-                }
+            } catch (error) {
+                agentStatusEl.textContent = 'Connection error';
             }
-        });
-        
-        // Add some voice commands for better UX
-        function handleVoiceCommand(transcript) {
-            const command = transcript.toLowerCase();
-            
-            // Check for voice commands
-            if (command.includes('clear') || command.includes('साफ करें')) {
-                chatContainer.innerHTML = '';
-                return true;
-            }
-            
-            if (command.includes('stop speaking') || command.includes('बंद करें')) {
-                speechSynthesis.cancel();
-                return true;
-            }
-            
-            if (command.includes('repeat') || command.includes('दोहराएं')) {
-                const lastBotMessage = chatContainer.querySelector('.message.bot:last-child .message-content');
-                if (lastBotMessage) {
-                    const text = lastBotMessage.textContent.replace('🔊', '').trim();
-                    speakText(text);
-                }
-                return true;
-            }
-            
-            if (command.includes('hindi') || command.includes('हिंदी')) {
-                setLanguage('hi-IN');
-                return true;
-            }
-            
-            if (command.includes('english') || command.includes('अंग्रेजी')) {
-                setLanguage('en-US');
-                return true;
-            }
-            
-            return false;
         }
+
+        checkSystemStatus();
+        setInterval(checkSystemStatus, 30000);
     </script>
 </body>
 </html>
 """
 
-# Routes
+# Enhanced API Routes
 @app.route('/')
 def index():
-    """Serve the main web interface"""
+    """Serve enhanced web interface"""
     return render_template_string(HTML_TEMPLATE)
 
-@app.route('/api/status', methods=['GET'])
-def get_status():
-    """Get server and SoyBot status"""
-    global is_initialized
-    return jsonify({
-        'status': 'ready' if is_initialized else 'initializing',
-        'message': 'SoyBot is ready' if is_initialized else 'SoyBot is initializing...',
+@app.route('/api/enhanced-status', methods=['GET'])
+@limiter.limit("30 per minute")
+def get_enhanced_status():
+    """Get enhanced system status with metrics"""
+    global enhanced_soybot
+    
+    system_ready = enhanced_soybot is not None and enhanced_soybot.is_initialized
+    
+    status_data = {
+        'success': True,
+        'system_status': 'ready' if system_ready else 'initializing',
+        'agents': {
+            'crop_management': system_ready,
+            'plant_health': system_ready, 
+            'nutrition': system_ready,
+            'coordinator': system_ready
+        },
         'features': {
-            'speech_recognition': True,
-            'text_to_speech': True,
-            'multilingual': True,
-            'pdf_knowledge': True
+            'multi_agent_routing': True,
+            'intent_classification': True,
+            'quality_assessment': True,
+            'multilingual_processing': True,
+            'context_awareness': True,
+            'performance_monitoring': True
         }
-    })
+    }
+    
+    if system_ready:
+        status_data['performance_metrics'] = enhanced_soybot.get_performance_metrics()
+    
+    return jsonify(status_data)
 
-@app.route('/api/ask', methods=['POST'])
-def ask_question():
-    """Handle question requests"""
-    global soybot_agent, is_initialized
+@app.route('/api/enhanced-ask', methods=['POST'])
+@limiter.limit("20 per minute")
+def enhanced_ask():
+    """Enhanced question processing with multi-agent system"""
+    global enhanced_soybot
+    
+    # Convert numpy types to native Python types for JSON serialization
+    def convert_numpy_types(obj):
+        if hasattr(obj, 'dtype'):
+            if 'bool' in str(obj.dtype):
+                return bool(obj)
+            elif 'int' in str(obj.dtype):
+                return int(obj)
+            elif 'float' in str(obj.dtype):
+                return float(obj)
+        elif isinstance(obj, dict):
+            return {k: convert_numpy_types(v) for k, v in obj.items()}
+        elif isinstance(obj, list):
+            return [convert_numpy_types(item) for item in obj]
+        return obj
     
     try:
-        # Check if SoyBot is initialized
-        if not is_initialized or soybot_agent is None:
+        if not enhanced_soybot or not enhanced_soybot.is_initialized:
             return jsonify({
                 'success': False,
-                'error': 'SoyBot is still initializing. Please wait a moment and try again.'
+                'error': 'Enhanced SoyBot system is still initializing. Please wait a moment.'
             }), 503
         
-        # Get question from request
         data = request.get_json()
         if not data or 'question' not in data:
             return jsonify({
@@ -1119,106 +2060,116 @@ def ask_question():
                 'error': 'Empty question provided'
             }), 400
         
-        # Detect language for better error handling
-        language = detect_language(question)
+        # Get user context (you can enhance this with session data)
+        user_context = data.get('context', {})
         
-        print(f"🤖 Processing question: {question}")
-        print(f"🌐 Detected language: {language}")
+        logger.info(f"Processing enhanced query: {question}")
         
-        # Get response from SoyBot
-        response = soybot_agent.run(question)
+        # Process with multi-agent system
+        result = enhanced_soybot.process_query(question, user_context)
         
-        # Extract response content
-        if hasattr(response, 'content'):
-            response_text = response.content
-        else:
-            response_text = str(response)
+        # Enhance with context if needed
+        enhanced_response = context_enhancer.enhance_with_context(
+            result['response'], question
+        )
         
-        # Format the response for both display and speech
-        formatted_response = format_response(response_text, language)
+        # A/B testing (you can implement user session tracking)
+        user_id = request.remote_addr  # Simple user identification
+        variant = ab_testing.assign_user_variant(user_id)
+        final_response = ab_testing.format_response_by_variant(enhanced_response, variant)
         
-        print(f"✅ Response generated successfully")
+        logger.info(f"Response generated by agent: {result.get('agent_used', 'unknown')}")
         
-        return jsonify({
+        response_data = {
             'success': True,
-            'response': formatted_response,
-            'language': language,
-            'speech_enabled': True
-        })
+            'response': final_response,
+            'agent_used': result.get('agent_used'),
+            'quality_assessment': convert_numpy_types(result.get('quality_assessment', {})),
+            'language_info': convert_numpy_types(result.get('language_info', {})),
+            'intent_info': convert_numpy_types(result.get('intent_info', {})),
+            'variant': variant,
+            'processing_time': result.get('processing_time')
+        }
+
+        return jsonify(response_data)
         
     except Exception as e:
-        print(f"❌ Error processing question: {str(e)}")
-        print(traceback.format_exc())
-        
-        # Language-appropriate error messages
-        if 'language' in locals() and language == 'hindi':
-            error_msg = f"क्षमा करें, तकनीकी समस्या है। कृपया बाद में कोशिश करें।"
-        else:
-            error_msg = f"Sorry, there's a technical issue. Please try again later."
+        logger.error(f"Error in enhanced query processing: {str(e)}")
+        logger.error(traceback.format_exc())
         
         return jsonify({
             'success': False,
-            'error': error_msg,
-            'details': str(e)
+            'error': 'Technical issue occurred. Please try again.',
+            'details': str(e) if app.debug else None
         }), 500
 
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'soybot_initialized': is_initialized,
-        'speech_features': {
-            'recognition': True,
-            'synthesis': True,
-            'multilingual': True
-        }
-    })
+@app.route('/api/metrics', methods=['GET'])
+@limiter.limit("10 per minute")
+def get_metrics():
+    """Get detailed system metrics"""
+    global enhanced_soybot
+    
+    if not enhanced_soybot or not enhanced_soybot.is_initialized:
+        return jsonify({'error': 'System not initialized'}), 503
+    
+    metrics = enhanced_soybot.get_performance_metrics()
+    
+    # Add A/B testing results
+    metrics['ab_testing'] = {
+        'variants': list(ab_testing.test_variants.keys()),
+        'results': ab_testing.test_results
+    }
+    
+    return jsonify(metrics)
 
 # Error handlers
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return jsonify({
+        'error': 'Rate limit exceeded',
+        'message': 'Please wait before making more requests'
+    }), 429
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({'error': 'Endpoint not found'}), 404
 
 @app.errorhandler(500)
 def internal_error(error):
+    logger.error(f"Internal server error: {error}")
     return jsonify({'error': 'Internal server error'}), 500
 
+# Create required directories
+import os
+os.makedirs('models', exist_ok=True)
+os.makedirs('vectordb', exist_ok=True)
+os.makedirs('logs', exist_ok=True)
+
 if __name__ == '__main__':
-    print("🌱 Starting Voice-Enabled SoyBot Flask Server...")
-    print("🔄 Initializing SoyBot with Speech Integration...")
+    logger.info("Starting Enhanced SoyBot System...")
     
-    # Initialize SoyBot
-    if initialize_soybot():
-        print("✅ SoyBot initialized successfully!")
-        print("   📚 PDF Knowledge Base: Loaded")
-        print("   🌐 Multilingual Support: Active")
-        print("   🎯 PDF-Only Responses: Enforced")
-        print("   🎤 Speech Recognition: Ready")
-        print("   🔊 Text-to-Speech: Ready")
-        print("   ⌨️  Keyboard Shortcuts: Enabled")
-        print("🚀 Starting Flask server...")
-        print("🌐 Access the web interface at: http://localhost:5000")
-        print("📡 API endpoints available at: http://localhost:5000/api/")
-        print("🎤 Speech Features:")
-        print("   - Click microphone button to speak")
-        print("   - Auto-speak responses (toggle on/off)")
-        print("   - Voice commands: 'clear', 'stop speaking', 'repeat'")
-        print("   - Keyboard shortcuts: Ctrl+M (mic), Ctrl+S (stop speech)")
-        print("   - Multilingual speech support")
-        print("-" * 60)
+    # Initialize enhanced system
+    if initialize_enhanced_soybot():
+        logger.info("✅ Enhanced SoyBot System initialized successfully!")
+        logger.info("Features enabled:")
+        logger.info("   🤖 Multi-Agent Architecture")
+        logger.info("   🎯 Intent Classification") 
+        logger.info("   📊 Quality Assessment")
+        logger.info("   🌍 Advanced Language Processing")
+        logger.info("   📋 Context Awareness")
+        logger.info("   ⚡ Performance Monitoring")
+        logger.info("   🧪 A/B Testing Framework")
+        logger.info("🚀 Starting enhanced Flask server...")
+        logger.info("🌐 Access at: http://localhost:5000")
+        logger.info("-" * 80)
         
-        # Run Flask app
         app.run(
             host='0.0.0.0',
             port=5000,
-            debug=False,  # Set to True for development
+            debug=False,
             threaded=True
         )
     else:
-        print("❌ Failed to initialize SoyBot. Please check your configuration.")
-        print("🔍 Common issues:")
-        print("   - Missing GROQ_API_KEY in .env file")
-        print("   - Missing Soybeanpackageofpractices.pdf file")
-        print("   - Network connectivity issues")
+        logger.error("❌ Failed to initialize Enhanced SoyBot System")
+        logger.error("Please check your configuration and try again.")
         sys.exit(1)

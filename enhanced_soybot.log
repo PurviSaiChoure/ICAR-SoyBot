@@ -1,0 +1,316 @@
+2025-09-04 10:11:07,038 - EnhancedSoyBot - INFO - Starting Enhanced SoyBot System...
+2025-09-04 10:11:07,038 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot System...
+2025-09-04 10:11:07,235 - EnhancedSoyBot - INFO - No pre-trained model found, will train on first use
+2025-09-04 10:11:07,243 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:07,243 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:13,803 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:13,803 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:17,618 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot...
+2025-09-04 10:11:17,618 - EnhancedSoyBot - INFO - Creating topic-specific knowledge bases...
+2025-09-04 10:11:17,692 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:17,692 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:24,483 - pypdf._reader - WARNING - incorrect startxref pointer(1)
+2025-09-04 10:11:24,523 - pypdf._reader - WARNING - parsing for Object Streams
+2025-09-04 10:11:24,590 - pypdf._reader - WARNING - found 0 objects within Object(218,0) whereas 500 expected
+2025-09-04 10:11:24,607 - pypdf._reader - WARNING - found 0 objects within Object(737,0) whereas 500 expected
+2025-09-04 10:11:24,633 - pypdf._reader - WARNING - found 0 objects within Object(1248,0) whereas 500 expected
+2025-09-04 10:11:24,648 - pypdf._reader - WARNING - found 0 objects within Object(1763,0) whereas 500 expected
+2025-09-04 10:11:24,665 - pypdf._reader - WARNING - found 0 objects within Object(2274,0) whereas 127 expected
+2025-09-04 10:11:25,751 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:25,751 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:29,625 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:29,625 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:33,789 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:33,789 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:37,484 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:37,484 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:41,617 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:41,617 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:46,585 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:46,585 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:50,693 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:50,698 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:54,694 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:54,694 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:11:58,673 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:11:58,673 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:03,384 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:03,384 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:07,116 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:07,116 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:11,193 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:11,193 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:15,115 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:15,115 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:19,513 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:19,513 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:22,823 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:22,823 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:26,616 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:26,616 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:29,823 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:29,825 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:33,197 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:33,197 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:36,584 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:36,584 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:39,710 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:39,711 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:43,347 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:43,347 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:46,585 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:46,585 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:49,763 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:49,763 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:53,438 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:53,438 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:12:57,461 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:12:57,461 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:00,557 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:00,557 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:03,693 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:03,693 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:07,133 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:07,133 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:10,124 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:10,125 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:13,123 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:13,123 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:16,104 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:16,104 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:19,089 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:19,089 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:22,748 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:22,748 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:27,047 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:27,047 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:29,063 - huggingface_hub.utils._http - WARNING - HTTP Error 429 thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json
+2025-09-04 10:13:29,064 - huggingface_hub.utils._http - WARNING - Retrying in 1s [Retry 1/5].
+2025-09-04 10:13:30,183 - huggingface_hub.utils._http - WARNING - HTTP Error 429 thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json
+2025-09-04 10:13:30,183 - huggingface_hub.utils._http - WARNING - Retrying in 2s [Retry 2/5].
+2025-09-04 10:13:32,215 - huggingface_hub.utils._http - WARNING - HTTP Error 429 thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json
+2025-09-04 10:13:32,223 - huggingface_hub.utils._http - WARNING - Retrying in 4s [Retry 3/5].
+2025-09-04 10:13:36,264 - huggingface_hub.utils._http - WARNING - HTTP Error 429 thrown while requesting HEAD https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/main/config.json
+2025-09-04 10:13:36,267 - huggingface_hub.utils._http - WARNING - Retrying in 8s [Retry 4/5].
+2025-09-04 10:13:45,706 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:45,707 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:48,658 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:48,658 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:51,629 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:51,629 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:13:55,640 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:13:55,640 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:00,039 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:00,039 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:03,910 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:03,910 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:07,507 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:07,507 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:11,748 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:11,748 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:15,144 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:15,144 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:19,164 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:19,164 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:23,234 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:23,234 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:26,390 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:26,390 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:30,449 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:30,450 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:34,068 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:34,068 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:38,015 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:38,016 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:42,063 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:42,064 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:45,483 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:45,483 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:49,283 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:49,283 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:52,880 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:52,880 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:56,458 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:14:56,459 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:14:59,849 - EnhancedSoyBot - INFO - Knowledge bases created successfully
+2025-09-04 10:15:00,030 - EnhancedSoyBot - INFO - Training intent classifier...
+2025-09-04 10:15:00,120 - EnhancedSoyBot - INFO - Intent classifier trained successfully
+2025-09-04 10:15:00,120 - EnhancedSoyBot - INFO - Enhanced SoyBot initialized successfully!
+2025-09-04 10:15:00,120 - EnhancedSoyBot - INFO - Enhanced SoyBot System ready!
+2025-09-04 10:15:00,179 - EnhancedSoyBot - INFO - Features enabled:
+2025-09-04 10:15:00,204 - EnhancedSoyBot - INFO - --------------------------------------------------------------------------------
+2025-09-04 10:15:00,249 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.162:5000
+2025-09-04 10:15:00,249 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-04 10:15:10,722 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:10] "GET / HTTP/1.1" 200 -
+2025-09-04 10:15:11,099 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:15:23,009 - EnhancedSoyBot - INFO - Processing enhanced query: My soybean plants have yellow spots on leaves. What could be the problem?
+2025-09-04 10:15:23,009 - EnhancedSoyBot - ERROR - Error processing query: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:23,009 - EnhancedSoyBot - ERROR - Error in enhanced query processing: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:23,020 - EnhancedSoyBot - ERROR - Traceback (most recent call last):
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 2053, in enhanced_ask
+    result = enhanced_soybot.process_query(question, user_context)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 654, in wrapper
+    result = func(*args, **kwargs)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 681, in process_query
+    lang_info = self.language_processor.enhanced_language_detection(query)
+AttributeError: 'str' object has no attribute 'language_processor'
+
+2025-09-04 10:15:23,020 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:23] "[35m[1mPOST /api/enhanced-ask HTTP/1.1[0m" 500 -
+2025-09-04 10:15:34,250 - EnhancedSoyBot - INFO - Processing enhanced query: what is suva
+2025-09-04 10:15:34,250 - EnhancedSoyBot - ERROR - Error processing query: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:34,250 - EnhancedSoyBot - ERROR - Error in enhanced query processing: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:34,256 - EnhancedSoyBot - ERROR - Traceback (most recent call last):
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 2053, in enhanced_ask
+    result = enhanced_soybot.process_query(question, user_context)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 654, in wrapper
+    result = func(*args, **kwargs)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 681, in process_query
+    lang_info = self.language_processor.enhanced_language_detection(query)
+AttributeError: 'str' object has no attribute 'language_processor'
+
+2025-09-04 10:15:34,256 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:34] "[35m[1mPOST /api/enhanced-ask HTTP/1.1[0m" 500 -
+2025-09-04 10:15:41,103 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:41] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:15:43,859 - EnhancedSoyBot - ERROR - Error processing query: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:43,859 - EnhancedSoyBot - ERROR - Error in enhanced query processing: 'str' object has no attribute 'language_processor'
+2025-09-04 10:15:43,864 - EnhancedSoyBot - ERROR - Traceback (most recent call last):
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 2053, in enhanced_ask
+    result = enhanced_soybot.process_query(question, user_context)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 654, in wrapper
+    result = func(*args, **kwargs)
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 681, in process_query
+    lang_info = self.language_processor.enhanced_language_detection(query)
+AttributeError: 'str' object has no attribute 'language_processor'
+
+2025-09-04 10:15:43,864 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:15:43] "[35m[1mPOST /api/enhanced-ask HTTP/1.1[0m" 500 -
+2025-09-04 10:16:11,107 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:16:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:16:42,274 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:16:42] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:17:11,950 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:17:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:17:42,270 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:17:42] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:19:07,101 - EnhancedSoyBot - INFO - Starting Enhanced SoyBot System...
+2025-09-04 10:19:07,101 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot System...
+2025-09-04 10:19:07,331 - EnhancedSoyBot - INFO - Loaded pre-trained intent classifier
+2025-09-04 10:19:07,331 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:19:07,331 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:19:13,653 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:19:13,653 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:19:17,529 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot...
+2025-09-04 10:19:17,529 - EnhancedSoyBot - INFO - Creating topic-specific knowledge bases...
+2025-09-04 10:19:18,041 - pypdf._reader - WARNING - incorrect startxref pointer(1)
+2025-09-04 10:19:18,120 - pypdf._reader - WARNING - parsing for Object Streams
+2025-09-04 10:19:18,261 - pypdf._reader - WARNING - found 0 objects within Object(218,0) whereas 500 expected
+2025-09-04 10:19:18,293 - pypdf._reader - WARNING - found 0 objects within Object(737,0) whereas 500 expected
+2025-09-04 10:19:18,369 - pypdf._reader - WARNING - found 0 objects within Object(1248,0) whereas 500 expected
+2025-09-04 10:19:18,411 - pypdf._reader - WARNING - found 0 objects within Object(1763,0) whereas 500 expected
+2025-09-04 10:19:18,449 - pypdf._reader - WARNING - found 0 objects within Object(2274,0) whereas 127 expected
+2025-09-04 10:19:20,120 - EnhancedSoyBot - INFO - Knowledge bases created successfully
+2025-09-04 10:19:20,125 - EnhancedSoyBot - INFO - Enhanced SoyBot initialized successfully!
+2025-09-04 10:19:20,125 - EnhancedSoyBot - INFO - Enhanced SoyBot System ready!
+2025-09-04 10:19:20,134 - EnhancedSoyBot - INFO - Features enabled:
+2025-09-04 10:19:20,169 - EnhancedSoyBot - INFO - --------------------------------------------------------------------------------
+2025-09-04 10:19:20,192 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.162:5000
+2025-09-04 10:19:20,192 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-04 10:19:41,425 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:19:41] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:19:41,441 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:19:41] "GET / HTTP/1.1" 200 -
+2025-09-04 10:19:41,647 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:19:41] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:19:45,057 - EnhancedSoyBot - INFO - Processing enhanced query: My soybean plants have yellow spots on leaves. What could be the problem?
+2025-09-04 10:19:47,897 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:19:49,061 - httpx - INFO - HTTP Request: POST https://api.phidata.com/v1/telemetry/agent/run/create "HTTP/1.1 200 OK"
+2025-09-04 10:19:49,674 - EnhancedSoyBot - INFO - Query processed successfully in 4.61s
+2025-09-04 10:19:49,674 - EnhancedSoyBot - INFO - Response generated by agent: coordinator
+2025-09-04 10:19:49,674 - EnhancedSoyBot - ERROR - Error in enhanced query processing: Object of type bool_ is not JSON serializable
+2025-09-04 10:19:49,819 - EnhancedSoyBot - ERROR - Traceback (most recent call last):
+  File "C:\Users\purvi\Downloads\Soybot_Using_Agno\app3.py", line 2068, in enhanced_ask
+    return jsonify({
+  File "C:\Users\purvi\AppData\Roaming\Python\Python310\site-packages\flask\json\__init__.py", line 170, in jsonify
+    return current_app.json.response(*args, **kwargs)
+  File "C:\Users\purvi\AppData\Roaming\Python\Python310\site-packages\flask\json\provider.py", line 215, in response
+    f"{self.dumps(obj, **dump_args)}\n", mimetype=self.mimetype
+  File "C:\Users\purvi\AppData\Roaming\Python\Python310\site-packages\flask\json\provider.py", line 180, in dumps
+    return json.dumps(obj, **kwargs)
+  File "C:\Program Files\Python310\lib\json\__init__.py", line 238, in dumps
+    **kw).encode(obj)
+  File "C:\Program Files\Python310\lib\json\encoder.py", line 199, in encode
+    chunks = self.iterencode(o, _one_shot=True)
+  File "C:\Program Files\Python310\lib\json\encoder.py", line 257, in iterencode
+    return _iterencode(o, 0)
+  File "C:\Users\purvi\AppData\Roaming\Python\Python310\site-packages\flask\json\provider.py", line 120, in _default
+    raise TypeError(f"Object of type {type(o).__name__} is not JSON serializable")
+TypeError: Object of type bool_ is not JSON serializable
+
+2025-09-04 10:19:49,821 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:19:49] "[35m[1mPOST /api/enhanced-ask HTTP/1.1[0m" 500 -
+2025-09-04 10:20:11,664 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:20:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:20:42,268 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:20:42] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:21:11,953 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:21:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:21:42,257 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:21:42] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:22:11,952 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:22:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:22:42,273 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:22:42] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:23:11,947 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:23:11] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:24:13,291 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:24:13] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:26:36,031 - EnhancedSoyBot - INFO - Starting Enhanced SoyBot System...
+2025-09-04 10:26:36,038 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot System...
+2025-09-04 10:26:36,188 - EnhancedSoyBot - INFO - Loaded pre-trained intent classifier
+2025-09-04 10:26:36,188 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:26:36,188 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:26:41,508 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:26:41,513 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:26:44,359 - EnhancedSoyBot - INFO - Initializing Enhanced SoyBot...
+2025-09-04 10:26:44,359 - EnhancedSoyBot - INFO - Creating topic-specific knowledge bases...
+2025-09-04 10:26:44,681 - pypdf._reader - WARNING - incorrect startxref pointer(1)
+2025-09-04 10:26:44,722 - pypdf._reader - WARNING - parsing for Object Streams
+2025-09-04 10:26:44,770 - pypdf._reader - WARNING - found 0 objects within Object(218,0) whereas 500 expected
+2025-09-04 10:26:44,790 - pypdf._reader - WARNING - found 0 objects within Object(737,0) whereas 500 expected
+2025-09-04 10:26:44,804 - pypdf._reader - WARNING - found 0 objects within Object(1248,0) whereas 500 expected
+2025-09-04 10:26:44,819 - pypdf._reader - WARNING - found 0 objects within Object(1763,0) whereas 500 expected
+2025-09-04 10:26:44,839 - pypdf._reader - WARNING - found 0 objects within Object(2274,0) whereas 127 expected
+2025-09-04 10:26:45,808 - EnhancedSoyBot - INFO - Knowledge bases created successfully
+2025-09-04 10:26:45,814 - EnhancedSoyBot - INFO - Enhanced SoyBot initialized successfully!
+2025-09-04 10:26:45,814 - EnhancedSoyBot - INFO - Enhanced SoyBot System ready!
+2025-09-04 10:26:45,822 - EnhancedSoyBot - INFO - Features enabled:
+2025-09-04 10:26:45,836 - EnhancedSoyBot - INFO - --------------------------------------------------------------------------------
+2025-09-04 10:26:45,858 - werkzeug - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.29.162:5000
+2025-09-04 10:26:45,858 - werkzeug - INFO - [33mPress CTRL+C to quit[0m
+2025-09-04 10:26:52,593 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:26:52] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:26:54,412 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:26:54] "GET / HTTP/1.1" 200 -
+2025-09-04 10:26:54,728 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:26:54] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:26:57,318 - EnhancedSoyBot - INFO - Processing enhanced query: My soybean plants have yellow spots on leaves. What could be the problem?
+2025-09-04 10:26:58,769 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:26:59,677 - httpx - INFO - HTTP Request: POST https://api.phidata.com/v1/telemetry/agent/run/create "HTTP/1.1 200 OK"
+2025-09-04 10:27:00,190 - EnhancedSoyBot - INFO - Query processed successfully in 2.87s
+2025-09-04 10:27:00,190 - EnhancedSoyBot - INFO - Response generated by agent: coordinator
+2025-09-04 10:27:00,192 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:27:00] "POST /api/enhanced-ask HTTP/1.1" 200 -
+2025-09-04 10:27:24,649 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:27:24] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:27:26,794 - EnhancedSoyBot - INFO - Processing enhanced query: can u tell about suva
+2025-09-04 10:27:27,171 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:27:27,181 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:27:27,181 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:27:33,548 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:27:34,525 - httpx - INFO - HTTP Request: POST https://api.phidata.com/v1/telemetry/agent/run/create "HTTP/1.1 200 OK"
+2025-09-04 10:27:34,640 - EnhancedSoyBot - INFO - Query processed successfully in 7.85s
+2025-09-04 10:27:34,640 - EnhancedSoyBot - INFO - Response generated by agent: coordinator
+2025-09-04 10:27:34,642 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:27:34] "POST /api/enhanced-ask HTTP/1.1" 200 -
+2025-09-04 10:27:48,895 - EnhancedSoyBot - INFO - Processing enhanced query: and trap crop?
+2025-09-04 10:27:49,240 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:27:49,247 - sentence_transformers.SentenceTransformer - INFO - Use pytorch device_name: cpu
+2025-09-04 10:27:49,247 - sentence_transformers.SentenceTransformer - INFO - Load pretrained SentenceTransformer: all-MiniLM-L6-v2
+2025-09-04 10:27:54,029 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:27:54,649 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:27:54] "GET /api/enhanced-status HTTP/1.1" 200 -
+2025-09-04 10:27:55,089 - httpx - INFO - HTTP Request: POST https://api.phidata.com/v1/telemetry/agent/run/create "HTTP/1.1 200 OK"
+2025-09-04 10:27:55,222 - EnhancedSoyBot - INFO - Query processed successfully in 6.33s
+2025-09-04 10:27:55,223 - EnhancedSoyBot - INFO - Response generated by agent: coordinator
+2025-09-04 10:27:55,224 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:27:55] "POST /api/enhanced-ask HTTP/1.1" 200 -
+2025-09-04 10:28:09,467 - EnhancedSoyBot - INFO - Processing enhanced query: tell more about suva as well please
+2025-09-04 10:28:09,855 - httpx - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2025-09-04 10:28:10,797 - httpx - INFO - HTTP Request: POST https://api.phidata.com/v1/telemetry/agent/run/create "HTTP/1.1 200 OK"
+2025-09-04 10:28:10,858 - EnhancedSoyBot - INFO - Query processed successfully in 1.39s
+2025-09-04 10:28:10,859 - EnhancedSoyBot - INFO - Response generated by agent: coordinator
+2025-09-04 10:28:10,861 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:28:10] "POST /api/enhanced-ask HTTP/1.1" 200 -
+2025-09-04 10:28:24,654 - werkzeug - INFO - 127.0.0.1 - - [04/Sep/2025 10:28:24] "GET /api/enhanced-status HTTP/1.1" 200 -
