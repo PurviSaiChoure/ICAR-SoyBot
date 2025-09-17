@@ -160,83 +160,106 @@ class AdvancedLanguageProcessor:
         agriculture_words = words.intersection(self.agriculture_terms)
         return len(agriculture_words) / max(len(words), 1)
 
-class QueryIntentClassifier:
-    """Advanced query intent classification"""
+class SmartIntentClassifier:
+    """AI-powered intent classification using Groq agent"""
     
-    def __init__(self):
-        self.vectorizer = TfidfVectorizer(
-            max_features=1000,
-            ngram_range=(1, 2),
-            stop_words='english'
+    def __init__(self, groq_api_key: str):
+        self.groq_api_key = groq_api_key
+        self.intent_agent = self._create_intent_agent()
+        
+    def _create_intent_agent(self):
+        """Create specialized intent classification agent"""
+        return Agent(
+            name="Intent Classifier",
+            model=Groq(id="llama-3.3-70b-versatile", api_key=self.groq_api_key),
+            instructions=[
+                "You are an expert agricultural query classifier.",
+                "Analyze farming queries and classify them into specific categories.",
+                "Always respond in JSON format with intent and confidence.",
+                "Available intents: disease_diagnosis, pest_control, fertilizer_advice, planting_guidance, harvesting_info, irrigation, variety_selection, general_query",
+                
+                "Classification guidelines:",
+                "- disease_diagnosis: Symptoms, plant health problems, infections, diseases",
+                "- pest_control: Insects, pests, damage from creatures, pest management", 
+                "- fertilizer_advice: Nutrients, fertilizers, soil health, NPK, feeding",
+                "- planting_guidance: Sowing, seeding, timing, spacing, varieties",
+                "- harvesting_info: Harvest timing, maturity, yield, storage",
+                "- irrigation: Water, watering, moisture, drought, irrigation systems",
+                "- variety_selection: Seed varieties, cultivars, which type to grow",
+                "- general_query: General farming questions, multiple topics",
+                
+                "Respond ONLY in this JSON format:",
+                '{"intent": "category_name", "confidence": 0.85, "reasoning": "brief explanation"}',
+                
+                "Examples:",
+                'Query: "My soybean leaves have yellow spots" → {"intent": "disease_diagnosis", "confidence": 0.9, "reasoning": "Clear disease symptoms described"}',
+                'Query: "कौन सा खाद सोयाबीन के लिए अच्छा है?" → {"intent": "fertilizer_advice", "confidence": 0.85, "reasoning": "Asking about fertilizer for soybean"}',
+                'Query: "When should I plant soybean?" → {"intent": "planting_guidance", "confidence": 0.9, "reasoning": "Asking about planting timing"}'
+            ],
+            show_tool_calls=False,
+            markdown=False
         )
-        self.classifier = MultinomialNB()
-        self.is_trained = False
-        self.intent_keywords = {
-            QueryIntent.DISEASE_DIAGNOSIS: [
-                'disease', 'infection', 'sick', 'spots', 'yellowing', 'wilting',
-                'blight', 'rust', 'fungus', 'viral', 'bacterial', 'symptoms',
-                'रोग', 'संक्रमण', 'बीमार', 'धब्बे', 'पीलापन', 'सूखना'  # Hindi
-            ],
-            QueryIntent.PEST_CONTROL: [
-                'pest', 'insect', 'bug', 'caterpillar', 'aphid', 'thrips',
-                'control', 'spray', 'pesticide', 'damage', 'eating', 'larvae',
-                'कीट', 'कीड़े', 'छिड़काव', 'नुकसान', 'खाना'  # Hindi
-            ],
-            QueryIntent.FERTILIZER_ADVICE: [
-                'fertilizer', 'nutrients', 'nitrogen', 'phosphorus', 'potassium',
-                'NPK', 'organic', 'compost', 'manure', 'feeding', 'nutrition',
-                'खाद', 'उर्वरक', 'पोषक', 'नाइट्रोजन', 'गोबर'  # Hindi
-            ],
-            QueryIntent.PLANTING_GUIDANCE: [
-                'planting', 'sowing', 'seeding', 'when to plant', 'plant spacing',
-                'depth', 'germination', 'varieties', 'cultivar', 'hybrid',
-                'बुवाई', 'रोपण', 'बीज', 'किस्म', 'अंकुरण'  # Hindi
-            ],
-            QueryIntent.HARVESTING_INFO: [
-                'harvest', 'harvesting', 'maturity', 'ready', 'picking',
-                'yield', 'timing', 'storage', 'drying', 'processing',
-                'कटाई', 'फसल', 'पकना', 'भंडारण', 'सुखाना'  # Hindi
-            ],
-            QueryIntent.IRRIGATION: [
-                'water', 'irrigation', 'watering', 'moisture', 'drought',
-                'rain', 'drip', 'sprinkler', 'flooding', 'dry', 'wet',
-                'पानी', 'सिंचाई', 'नमी', 'सूखा', 'बारिश'  # Hindi
-            ]
-        }
     
     def classify_intent(self, query: str) -> Dict[str, any]:
-        """Classify query intent with improved confidence scores"""
-        keyword_scores = {}
+        """Classify intent using AI agent"""
+        try:
+            # Create classification prompt
+            classification_prompt = f"""
+            Classify this agricultural query: "{query}"
+            
+            Consider the language (English/Hindi/Marathi) and context.
+            Respond with JSON only.
+            """
+            
+            # Get classification from agent
+            response = self.intent_agent.run(classification_prompt)
+            
+            # Extract response text
+            if hasattr(response, 'content'):
+                response_text = response.content
+            else:
+                response_text = str(response)
+            
+            # Parse JSON response
+            import json
+            import re
+            
+            # Extract JSON from response
+            json_match = re.search(r'\{.*\}', response_text.strip())
+            if json_match:
+                result = json.loads(json_match.group())
+                
+                return {
+                    'primary_intent': result.get('intent', 'general_query'),
+                    'confidence': float(result.get('confidence', 0.5)),
+                    'reasoning': result.get('reasoning', ''),
+                    'all_scores': {result.get('intent', 'general_query'): float(result.get('confidence', 0.5))}
+                }
+            else:
+                logger.warning(f"Could not parse intent classification: {response_text}")
+                return self._fallback_classification(query)
+                
+        except Exception as e:
+            logger.error(f"Error in intent classification: {e}")
+            return self._fallback_classification(query)
+    
+    def _fallback_classification(self, query: str) -> Dict[str, any]:
+        """Simple fallback classification"""
         query_lower = query.lower()
-        query_words = set(query_lower.split())
         
-        for intent, keywords in self.intent_keywords.items():
-            # Exact keyword matches
-            exact_matches = sum(1 for keyword in keywords if keyword in query_lower)
-            
-            # Word-level matches for better detection
-            word_matches = sum(1 for word in query_words 
-                            for keyword in keywords 
-                            if word in keyword or keyword in word)
-            
-            # Calculate score with both exact and partial matches
-            total_score = (exact_matches * 2) + word_matches
-            normalized_score = total_score / (len(keywords) + 5)  # Normalize
-            
-            keyword_scores[intent.value] = min(1.0, normalized_score)
-        
-        if max(keyword_scores.values()) > 0.05:  # Lower threshold
-            primary_intent = max(keyword_scores, key=keyword_scores.get)
-            confidence = keyword_scores[primary_intent]
+        # Basic keyword fallback
+        if any(word in query_lower for word in ['disease', 'sick', 'spots', 'infection', 'रोग', 'बीमार']):
+            return {'primary_intent': 'disease_diagnosis', 'confidence': 0.7, 'reasoning': 'Keyword fallback', 'all_scores': {'disease_diagnosis': 0.7}}
+        elif any(word in query_lower for word in ['pest', 'insect', 'कीट', 'कीड़े']):
+            return {'primary_intent': 'pest_control', 'confidence': 0.7, 'reasoning': 'Keyword fallback', 'all_scores': {'pest_control': 0.7}}
+        elif any(word in query_lower for word in ['fertilizer', 'nutrient', 'खाद', 'उर्वरक']):
+            return {'primary_intent': 'fertilizer_advice', 'confidence': 0.7, 'reasoning': 'Keyword fallback', 'all_scores': {'fertilizer_advice': 0.7}}
+        elif any(word in query_lower for word in ['plant', 'sow', 'बुवाई', 'रोपण']):
+            return {'primary_intent': 'planting_guidance', 'confidence': 0.7, 'reasoning': 'Keyword fallback', 'all_scores': {'planting_guidance': 0.7}}
         else:
-            primary_intent = QueryIntent.GENERAL_QUERY.value
-            confidence = 0.5
-        
-        return {
-            'primary_intent': primary_intent,
-            'confidence': confidence,
-            'all_scores': keyword_scores
-        }
+            return {'primary_intent': 'general_query', 'confidence': 0.5, 'reasoning': 'Default fallback', 'all_scores': {'general_query': 0.5}}
+
+
 
 class FixedKnowledgeBase:
     """Fixed knowledge base with proper tool registration"""
@@ -448,7 +471,7 @@ class FixedMultiAgentSoyBot:
             raise ValueError("GROQ_API_KEY not found in environment variables")
         
         self.language_processor = AdvancedLanguageProcessor()
-        self.intent_classifier = QueryIntentClassifier()
+        self.intent_classifier = SmartIntentClassifier(self.groq_api_key)
         self.knowledge_base_manager = FixedKnowledgeBase("Soybeanpackageofpractices.pdf")
         self.quality_assessor = ResponseQualityAssessor()
         self.context_enhancer = ContextAwareEnhancer()
@@ -459,7 +482,8 @@ class FixedMultiAgentSoyBot:
             'successful_responses': 0,
             'failed_responses': 0,
             'average_response_time': 0,
-            'quality_scores': []
+            'quality_scores': [],
+            'intent_classifications': {} 
         }
         
         self.is_initialized = False
@@ -588,13 +612,19 @@ class FixedMultiAgentSoyBot:
     
     @performance_monitor 
     def process_query(self, query: str, user_context: Optional[Dict] = None) -> Dict[str, any]:
-        """Process query with full feature set"""
+        """Process query with smart intent classification"""
         
-        # Language analysis - RESTORED
+        # Language analysis
         lang_info = self.language_processor.enhanced_language_detection(query)
         
-        # Intent classification
+        # SMART intent classification using AI agent
         intent_info = self.intent_classifier.classify_intent(query)
+        
+        # Track intent classification
+        intent = intent_info['primary_intent']
+        if intent not in self.performance_metrics['intent_classifications']:
+            self.performance_metrics['intent_classifications'][intent] = 0
+        self.performance_metrics['intent_classifications'][intent] += 1
         
         # Route to appropriate agent
         agent_response = self._route_query_to_agent(query, intent_info)
@@ -607,7 +637,7 @@ class FixedMultiAgentSoyBot:
         # Store quality metrics
         self.performance_metrics['quality_scores'].append(quality_assessment.overall_confidence)
         
-        # Enhance with context - RESTORED
+        # Enhance with context
         enhanced_response = self.context_enhancer.enhance_with_context(
             agent_response['response'], query
         )
@@ -618,37 +648,57 @@ class FixedMultiAgentSoyBot:
             'language_info': lang_info,
             'intent_info': intent_info,
             'quality_assessment': quality_assessment.__dict__,
-            'processing_time': time.time()
+            'processing_time': time.time(),
+            'intent_reasoning': agent_response.get('intent_reasoning', '')
         }
     
     def _route_query_to_agent(self, query: str, intent_info: Dict) -> Dict[str, str]:
-        """Route query to appropriate agent"""
-
+        """Smart routing based on AI intent classification"""
+        
         intent = intent_info['primary_intent']
         confidence = intent_info['confidence']
+        reasoning = intent_info.get('reasoning', '')
         
-        # DEBUG: Log routing decision
+        logger.info(f"=== SMART ROUTING ===")
+        logger.info(f"Query: {query[:50]}...")
         logger.info(f"Intent: {intent}, Confidence: {confidence:.3f}")
-        logger.info(f"All scores: {intent_info.get('all_scores', {})}")
+        logger.info(f"AI Reasoning: {reasoning}")
+        logger.info(f"====================")
         
-        # Route based on intent with lower thresholds
-        if intent in ['disease_diagnosis', 'pest_control'] and confidence > 0.1:
-            agent_name = 'plant_health'
-        elif intent in ['fertilizer_advice'] and confidence > 0.1:
-            agent_name = 'nutrition'  
-        elif intent in ['planting_guidance', 'harvesting_info', 'irrigation'] and confidence > 0.1:
-            agent_name = 'crop_management'
-        else:
+        # Smart routing with confidence thresholds
+        agent_name = 'coordinator'  # Default
+        
+        if confidence > 0.6:  # High confidence routing
+            if intent in ['disease_diagnosis', 'pest_control']:
+                agent_name = 'plant_health'
+            elif intent == 'fertilizer_advice':
+                agent_name = 'nutrition'
+            elif intent in ['planting_guidance', 'harvesting_info', 'irrigation', 'variety_selection']:
+                agent_name = 'crop_management'
+            else:
+                agent_name = 'coordinator'
+        
+        elif confidence > 0.4:  # Medium confidence - use coordinator but log the intent
+            logger.info(f"Medium confidence, using coordinator for {intent}")
             agent_name = 'coordinator'
         
-        logger.info(f"Routing to: {agent_name}")
+        else:  # Low confidence - always use coordinator
+            logger.info(f"Low confidence, defaulting to coordinator")
+            agent_name = 'coordinator'
+        
+        logger.info(f"Final routing: {agent_name} (confidence: {confidence:.3f})")
         
         try:
             agent = self.agents[agent_name]
-            logger.info(f"Routing query to {agent_name} agent")
+            logger.info(f"Using {agent_name} agent")
             
-            # Run the agent - should now work with proper tool registration
-            response = agent.run(query)
+            # Enhanced query with context for better responses
+            enhanced_query = query
+            if agent_name != 'coordinator' and reasoning:
+                enhanced_query = f"{query}\n\n[Context: This appears to be a {intent.replace('_', ' ')} query - {reasoning}]"
+            
+            # Run the agent
+            response = agent.run(enhanced_query)
             
             # Extract response content
             if hasattr(response, 'content'):
@@ -659,16 +709,21 @@ class FixedMultiAgentSoyBot:
                 response_text = str(response)
             
             response_text = response_text.strip()
+            
+            # Remove context from response if it was added
+            if "[Context:" in response_text:
+                response_text = re.sub(r'\[Context:.*?\]', '', response_text).strip()
+            
             logger.info(f"Agent {agent_name} responded with {len(response_text)} characters")
             
             return {
                 'response': response_text,
-                'agent': agent_name
+                'agent': agent_name,
+                'intent_reasoning': reasoning
             }
             
         except Exception as e:
             logger.error(f"Error with agent {agent_name}: {e}")
-            logger.error(traceback.format_exc())
             
             # Fallback to coordinator
             if agent_name != 'coordinator':
@@ -683,15 +738,16 @@ class FixedMultiAgentSoyBot:
                     
                     return {
                         'response': response_text.strip(),
-                        'agent': 'coordinator_fallback'
+                        'agent': 'coordinator_fallback',
+                        'intent_reasoning': reasoning
                     }
                 except Exception as fallback_error:
                     logger.error(f"Coordinator fallback failed: {fallback_error}")
             
-            # Final fallback
             return {
-                'response': f"I understand you're asking about soybean farming. Based on general agricultural practices, I recommend consulting your local extension officer for specific guidance about: {query[:100]}...",
-                'agent': 'fallback'
+                'response': f"I understand you're asking about soybean farming. Let me provide some general guidance based on your query: {query}",
+                'agent': 'fallback',
+                'intent_reasoning': 'Error fallback'
             }
     
     def get_performance_metrics(self) -> Dict[str, any]:
