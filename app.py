@@ -174,41 +174,58 @@ class QueryIntentClassifier:
         self.intent_keywords = {
             QueryIntent.DISEASE_DIAGNOSIS: [
                 'disease', 'infection', 'sick', 'spots', 'yellowing', 'wilting',
-                'blight', 'rust', 'fungus', 'viral', 'bacterial', 'symptoms'
+                'blight', 'rust', 'fungus', 'viral', 'bacterial', 'symptoms',
+                'रोग', 'संक्रमण', 'बीमार', 'धब्बे', 'पीलापन', 'सूखना'  # Hindi
             ],
             QueryIntent.PEST_CONTROL: [
                 'pest', 'insect', 'bug', 'caterpillar', 'aphid', 'thrips',
-                'control', 'spray', 'pesticide', 'damage', 'eating', 'larvae'
+                'control', 'spray', 'pesticide', 'damage', 'eating', 'larvae',
+                'कीट', 'कीड़े', 'छिड़काव', 'नुकसान', 'खाना'  # Hindi
             ],
             QueryIntent.FERTILIZER_ADVICE: [
                 'fertilizer', 'nutrients', 'nitrogen', 'phosphorus', 'potassium',
-                'NPK', 'organic', 'compost', 'manure', 'feeding', 'nutrition'
+                'NPK', 'organic', 'compost', 'manure', 'feeding', 'nutrition',
+                'खाद', 'उर्वरक', 'पोषक', 'नाइट्रोजन', 'गोबर'  # Hindi
             ],
             QueryIntent.PLANTING_GUIDANCE: [
                 'planting', 'sowing', 'seeding', 'when to plant', 'plant spacing',
-                'depth', 'germination', 'varieties', 'cultivar', 'hybrid'
+                'depth', 'germination', 'varieties', 'cultivar', 'hybrid',
+                'बुवाई', 'रोपण', 'बीज', 'किस्म', 'अंकुरण'  # Hindi
             ],
             QueryIntent.HARVESTING_INFO: [
                 'harvest', 'harvesting', 'maturity', 'ready', 'picking',
-                'yield', 'timing', 'storage', 'drying', 'processing'
+                'yield', 'timing', 'storage', 'drying', 'processing',
+                'कटाई', 'फसल', 'पकना', 'भंडारण', 'सुखाना'  # Hindi
             ],
             QueryIntent.IRRIGATION: [
                 'water', 'irrigation', 'watering', 'moisture', 'drought',
-                'rain', 'drip', 'sprinkler', 'flooding', 'dry', 'wet'
+                'rain', 'drip', 'sprinkler', 'flooding', 'dry', 'wet',
+                'पानी', 'सिंचाई', 'नमी', 'सूखा', 'बारिश'  # Hindi
             ]
         }
     
     def classify_intent(self, query: str) -> Dict[str, any]:
-        """Classify query intent with confidence scores"""
-        # Keyword-based approach for robustness
+        """Classify query intent with improved confidence scores"""
         keyword_scores = {}
         query_lower = query.lower()
+        query_words = set(query_lower.split())
         
         for intent, keywords in self.intent_keywords.items():
-            score = sum(1 for keyword in keywords if keyword in query_lower)
-            keyword_scores[intent.value] = score / len(keywords)
+            # Exact keyword matches
+            exact_matches = sum(1 for keyword in keywords if keyword in query_lower)
+            
+            # Word-level matches for better detection
+            word_matches = sum(1 for word in query_words 
+                            for keyword in keywords 
+                            if word in keyword or keyword in word)
+            
+            # Calculate score with both exact and partial matches
+            total_score = (exact_matches * 2) + word_matches
+            normalized_score = total_score / (len(keywords) + 5)  # Normalize
+            
+            keyword_scores[intent.value] = min(1.0, normalized_score)
         
-        if sum(keyword_scores.values()) > 0:
+        if max(keyword_scores.values()) > 0.05:  # Lower threshold
             primary_intent = max(keyword_scores, key=keyword_scores.get)
             confidence = keyword_scores[primary_intent]
         else:
@@ -237,7 +254,7 @@ class FixedKnowledgeBase:
             if not os.path.exists(self.pdf_path):
                 raise FileNotFoundError(f"PDF file not found: {self.pdf_path}")
             
-            # Create knowledge base with FIXED configuration
+            # Create knowledge base with FIXED configuration FIRST
             self.knowledge_base = PDFKnowledgeBase(
                 path=self.pdf_path,
                 vector_db=LanceDb(
@@ -245,6 +262,8 @@ class FixedKnowledgeBase:
                     uri="./vectordb/soybot_fixed_db",
                     search_type=SearchType.vector,
                     embedder=self.embedder,
+                    nprobes=10,          # Better search performance
+                    
                 ),
                 # Add proper chunking for better RAG
                 chunk_size=1000,
@@ -254,8 +273,22 @@ class FixedKnowledgeBase:
             # Load the knowledge base
             logger.info("Loading knowledge base...")
             self.knowledge_base.load(recreate=False)
-            logger.info("Knowledge base loaded successfully")
             
+            # NOW verify document count AFTER creation
+            try:
+                if hasattr(self.knowledge_base, 'vector_db') and hasattr(self.knowledge_base.vector_db, 'table'):
+                    doc_count = len(self.knowledge_base.vector_db.table.to_pandas())
+                    logger.info(f"Knowledge base loaded with {doc_count} document chunks")
+                    
+                    if doc_count == 0:
+                        logger.warning("Knowledge base is empty, recreating...")
+                        self.knowledge_base.load(recreate=True)
+                        doc_count = len(self.knowledge_base.vector_db.table.to_pandas())
+                        logger.info(f"Recreated knowledge base with {doc_count} document chunks")
+            except Exception as verify_error:
+                logger.warning(f"Could not verify document count: {verify_error}")
+            
+            logger.info("Knowledge base loaded successfully")
             return self.knowledge_base
             
         except Exception as e:
@@ -590,19 +623,25 @@ class FixedMultiAgentSoyBot:
     
     def _route_query_to_agent(self, query: str, intent_info: Dict) -> Dict[str, str]:
         """Route query to appropriate agent"""
-        
+
         intent = intent_info['primary_intent']
         confidence = intent_info['confidence']
         
-        # Route based on intent
-        if intent in ['disease_diagnosis', 'pest_control'] and confidence > 0.4:
+        # DEBUG: Log routing decision
+        logger.info(f"Intent: {intent}, Confidence: {confidence:.3f}")
+        logger.info(f"All scores: {intent_info.get('all_scores', {})}")
+        
+        # Route based on intent with lower thresholds
+        if intent in ['disease_diagnosis', 'pest_control'] and confidence > 0.1:
             agent_name = 'plant_health'
-        elif intent in ['fertilizer_advice'] and confidence > 0.4:
-            agent_name = 'nutrition'
-        elif intent in ['planting_guidance', 'harvesting_info', 'irrigation'] and confidence > 0.4:
+        elif intent in ['fertilizer_advice'] and confidence > 0.1:
+            agent_name = 'nutrition'  
+        elif intent in ['planting_guidance', 'harvesting_info', 'irrigation'] and confidence > 0.1:
             agent_name = 'crop_management'
         else:
             agent_name = 'coordinator'
+        
+        logger.info(f"Routing to: {agent_name}")
         
         try:
             agent = self.agents[agent_name]
@@ -1885,19 +1924,19 @@ if __name__ == '__main__':
     
     # Initialize FIXED system
     if initialize_fixed_soybot():
-        logger.info("✅ FIXED Enhanced SoyBot System initialized successfully!")
+        logger.info("Enhanced SoyBot System initialized successfully!")
         logger.info("Features enabled:")
-        logger.info("   ✅ FIXED RAG Integration")
-        logger.info("   🤖 Multi-Agent Architecture")
-        logger.info("   🎯 Intent Classification") 
-        logger.info("   📊 Quality Assessment")
-        logger.info("   🌍 Multilingual Processing (Hindi/Marathi/English)")
-        logger.info("   🗣️ Text-to-Speech Support")
-        logger.info("   🎤 Speech-to-Text Support")
-        logger.info("   📋 Context Awareness")
-        logger.info("   ⚡ Performance Monitoring")
-        logger.info("🚀 Starting enhanced Flask server...")
-        logger.info("🌐 Access at: http://localhost:5000")
+        logger.info("   RAG Integration")
+        logger.info("   Multi-Agent Architecture")
+        logger.info("   Intent Classification")
+        logger.info("   Quality Assessment")
+        logger.info("   Multilingual Processing (Hindi/Marathi/English)")
+        logger.info("   Text-to-Speech Support")
+        logger.info("   Speech-to-Text Support")
+        logger.info("   Context Awareness")
+        logger.info("   Performance Monitoring")
+        logger.info("Starting enhanced Flask server...")
+        logger.info("Access at: http://localhost:5000")
         logger.info("-" * 80)
         
         app.run(
@@ -1907,6 +1946,6 @@ if __name__ == '__main__':
             threaded=True
         )
     else:
-        logger.error("❌ Failed to initialize FIXED Enhanced SoyBot System")
+        logger.error("Failed to initialize Enhanced SoyBot System")
         logger.error("Please check your configuration and try again.")
         sys.exit(1)
